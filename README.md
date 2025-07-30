@@ -1,9 +1,9 @@
 # MRI_pain_effort
 
-:warning: Add a short description of the project (goals, analyses)
+:warning: Add a short description of the project (goals, analyses).
 
 This reposiory contains scripts used for a research project. All those scripts were run on
-preprocessed BOLD timeseries (output of fMRIPrep; version XX).
+preprocessed BOLD timeseries (fMRIPrep output; [fMRIPrep](https://fmriprep.org/en/stable/) version 23.2.1).
 
 ## Quick start
 
@@ -44,4 +44,8 @@ Content of `mri_pain_effort/`:
     - `first_level_contrasts.py`: script specifying the contrasts to compute the activation maps.
     - `contrasts_first_level.json`: file specifying the contrasts to save in `first_level_contrasts.py`.
     - `contrasts_fixed_effect.json`: file specifying the contrasts to use to compute the fixed effects.
+    - `README.md`: file containing specific information regarding how to setup the configuration files.
 - `analysis/` contains the scripts to run the analyses
+    - `first_level_analysis.py`
+    - `fixed_effect_analysis.py`
+    - `second_level_analysis.py`

@@ -1,6 +1,9 @@
 import os
+import pprint
 import nibabel as nib
 
+from pathlib import Path
+from bids import BIDSLayout
 from argparse import ArgumentParser
 from joblib import Parallel, delayed
 
@@ -21,10 +24,14 @@ def fixed_effects(path_data, path_mask, path_output, sub, contrasts):
     contrasts: list
         List containing the contrasts on which to compute the fixed effect
     """
-    # Get all the subject folders in path_data
-    subjects = [s.replace('sub-', '') for s in os.listdir(path_data) if 'sub' in s and os.path.isdir(os.path.join(path_data, s))]
+    # Get BIDS Layout
+    layout = BIDSLayout(path_data, validate=False, is_derivative=True)
 
-    if insinstance(sub, str):
+    # Get all the subject folders in path_data
+    subjects = layout.get_subjects()
+    
+    # If sub is not None, check if specified subject numbers are valid
+    if isinstance(sub, str):
         if sub not in subjects:
             raise ValueError(f'sub-{sub} folder not in {path_data}')
         else:
@@ -39,44 +46,73 @@ def fixed_effects(path_data, path_mask, path_output, sub, contrasts):
     # Retrieve mask
     img_mask = nib.load(path_mask)
 
+    # Iterating through subjects
     for subject in subjects:
+        # Create output path if doesn't exit
         if path_output is None:
             path_output = path_data
-        path_output = os.path.join(path_output, f'sub-{subject}', 'func')
-        Path(path_out).mkdir(parents=True, exist_ok=True)
+        sub_out_dir = os.path.join(path_output, f'sub-{sub}', 'func')
+        Path(sub_out_dir).mkdir(parents=True, exist_ok=True)
 
+        # Iterating trough contrasts
         for contrast in contrasts:
-            # Get effectsize files
-            effectsize_files = os.listdir(os.path.join(path_data, f'sub-{subject}', 'func'))
-            effectsize_files = [f for f in effectsize_files if 'stat-effectsize' in f and contrast in f]
-            effectsize_files.sort()
-            effectsize_runs = [re.search(r'run-\d+', r).group() for r in effectsize_files]
+            print(f"\nComputing fixed effect for sub-{sub} and contrast {contrast}")
 
-            # Get effectvariance files
-            effectvariance_files = os.listdir(os.path.join(path_data, f'sub-{subject}', 'func'))
-            effectvariance_files = [f for f in effectvariance_files if 'stat-effectvariance' in f and contrast in f]
-            effectvariance_files.sort()
-            effectvariance_runs = [re.search(r'run-\d+', r).group() for r in effectvariance_files]
+            # Get the data for this subject and contrast
+            data = layout.get(subject=subject, extension='nii.gz', desc=contrast, invalid_filters='allow')
 
-            # Check if the same number of files are found
-            if len(effectsize_files) != len(effectvariance_files):
-                raise ValueError(f"Not the same number of files found for {effectsize_files} and {effectvariance_files}")
+            # Filter to get the effectsize and effectvariance
+            effectsize = [d for d in data if 'effectsize' in d.filename]
+            runs_effectsize = [f.get_entities()['run'] for f in effectsize]
+            effectvariance = [d for d in data if 'effectvariance' in d.filename]
+            runs_effectvariance = [f.get_entities()['run'] for f in effectvariance]
 
-            # Check if the run number matches
-            if (effectsize_runs==effectvariance_runs):
-                raise ValueError(f"Runs are not in the same order: {effectsize_runs} vs {effectvariance_runs}")
+            # Print retrieved files
+            print("Effect size: ")
+            pprint.pprint(effectsize)
+            print("\nVariance: ")
+            pprint.pprint(effectvariance)
+
+            # Checks
+            if not effectsize:
+                print(f"No effect size images found for sub-{sub} and contrast {desc}. Skipping.")
+                continue
+            if not effectvariance:
+                print(f"No variance images found for sub-{sub} and contrast {desc}. Skipping.")
+                continue
+
+            if len(effectsize) != len(effectvariance):
+                raise ValueError(f"Not the same number of files found for {effectsize} and {effectvariance}")
+            if (runs_effectsize==runs_effectvariance):
+                raise ValueError(f"Runs are not in the same order: {runs_effectsize} vs {runs_effectvariance}")
 
             # Compute fixed effect
             fixed_fx_contrast, fixed_fx_variance, fixed_fx_stat = compute_fixed_effects(
-                effectsize_files,
-                effectvariance_files,
-                img_mask
+                effectsize,
+                effectvariance,
+                path_mask,
             )
 
-            # Save output
-            nib.save(fixed_fx_contrast, os.path.join(path_output, f'sub-{subject}_task-pain_stat-contrast_desc-fixedfx.nii.gz'))
-            nib.save(fixed_fx_variance, os.path.join(path_output, f'sub-{subject}_task-pain_stat-variance_desc-fixedfx.nii.gz'))
-            nib.save(fixed_fx_stat, os.path.join(path_output, f'sub-{subject}_task-pain_stat-stat_desc-fixedfx.nii.gz'))
+            # Save the computed fixed effect outputs with safe file saving
+            safe_save(os.path.join(sub_out_dir, f"sub-{sub}_task-pain_stat-contrast_desc-{desc}.nii.gz"), fixed_fx_contrast)
+            safe_save(os.path.join(sub_out_dir, f"sub-{sub}_task-pain_stat-variance_desc-{desc}.nii.gz"), fixed_fx_variance)
+            safe_save(os.path.join(sub_out_dir, f"sub-{sub}_task-pain_stat-stat_desc-{desc}.nii.gz"), fixed_fx_stat)
+
+
+
+def _safe_save(file_path, data):
+    # If the file already exists, append a version suffix to make the filename unique
+    if os.path.exists(file_path):
+        base, ext = os.path.splitext(file_path)
+        i = 1
+        # Keep incrementing the suffix (e.g., _v1, _v2, etc.) until a unique file name is found
+        while os.path.exists(f"{base}_v{i}{ext}"):
+            i += 1
+        file_path = f"{base}_v{i}{ext}"
+        print(f"File already exists. Saving as {file_path}")
+    
+    # Save the file
+    nib.save(data, file_path)
 
 
 if __name__ == "__main__":
@@ -107,8 +143,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Get subjects
+    layout_bids = BIDSLayout(args.path_data, is_derivative=True)
+
     if args.subject is None:
-        subjects = os.listdir(args.path_data)
+        subjects = layout_bids.get_subjects()
+        subjects.sort()
     else:
         subjects = [args.subject]
 
@@ -118,14 +157,11 @@ if __name__ == "__main__":
     with open(config_path / "contrasts_fixed_effect.json", "r") as file:
         list_contrasts = json.load(file)
         if list_contrasts["contrasts"] == "":
-            list_contrasts = None
-        else:
-            list_contrasts = list_contrasts["contrasts"]
-        file.close()
+            raise ValueError(f"`contrasts` can not be an empty list.")
 
     # Run fixed effect analyses
     Parallel(n_jobs=3)(
         delayed(fixed_effects)(
-            args.path_data, args.path_mask, args.path_output, sub, args.contrasts
+            args.path_data, args.path_mask, args.path_output, sub, list_contrasts
         ) for sub in subjects
     )
