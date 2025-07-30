@@ -1,0 +1,12 @@
+{
+    "contractionpainminwarm": {
+        "conditions": [
+            "contractionpain",
+            "contractionwarm"
+        ],
+        "values": [
+            1,
+            -1 
+        ]
+    }
+}

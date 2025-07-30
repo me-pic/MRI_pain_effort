@@ -57,7 +57,7 @@ def make_localizer_contrasts(design_matrix, confounds):
         contrasts["pain5"]+ contrasts["pain30"])
     contrasts["warm"] = (
         contrasts["warm5"]+contrasts["warm30"])
-    contrasts["thermalstimulation"] = (
+    contrasts["thermalstim"] = (
         contrasts["pain"]
         + contrasts["warm"]
     )

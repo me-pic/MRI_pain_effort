@@ -1,5 +1,26 @@
 {
     "contrasts" : [
-        ""
+        "pain",
+        "warm",
+        "contractionsolo30", 
+        "contractionsolo5", 
+        "contractionsolo5plus30",
+        "pain5", 
+        "pain30", 
+        "warm5", 
+        "warm30",
+        "contractionpain30", 
+        "contractionwarm30",
+        "contractionpain5", 
+        "contractionwarm5", 
+        "thermalstim", 
+        "contraction5",
+        "contraction30", 
+        "contraction5thermal", 
+        "contraction30thermal", 
+        "contractionthermal5plus30", 
+        "contractionwarm", 
+        "contractionpain", 
+        "contraction5plus30"
     ] 
 }
