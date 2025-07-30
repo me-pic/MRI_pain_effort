@@ -44,8 +44,10 @@ Content of `mri_pain_effort/`:
     - `first_level_contrasts.py`: script specifying the contrasts to compute the activation maps.
     - `contrasts_first_level.json`: file specifying the contrasts to save in `first_level_contrasts.py`.
     - `contrasts_fixed_effect.json`: file specifying the contrasts to use to compute the fixed effects.
+    - `contrasts_second_level.json`: file specifying the contrasts to use to run the second level analysis.
     - `README.md`: file containing specific information regarding how to setup the configuration files.
 - `analysis/` contains the scripts to run the analyses
     - `first_level_analysis.py`
     - `fixed_effect_analysis.py`
     - `second_level_analysis.py`
+    - `parametric_regression_analysis.py`

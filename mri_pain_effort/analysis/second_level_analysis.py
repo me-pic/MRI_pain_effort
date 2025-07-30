@@ -2,9 +2,9 @@ import os
 import pprint
 import nibabel as nib
 
+from pathlib import Path
 from bids import BIDSLayout
 from argparse import ArgumentParser
-from joblib import Parallel, delayed
 
 from nilearn.glm import threshold_stats_img
 from nilearn.glm.second_level import SecondLevelModel
@@ -71,7 +71,7 @@ def run_second_level_glm(path_data, path_mask, path_ouput, contrasts):
         print(f"Design matrix shape: {design_matrix.shape}")
 
         # Defining the SecondLevelModel
-        second_level_model = SecondLevelModel()
+        second_level_model = SecondLevelModel(mask_img=path_mask)
         # Fitting the SecondLevelModel
         second_level_model = second_level_model.fit(
             second_level_input, design_matrix=design_matrix
@@ -93,8 +93,6 @@ def run_second_level_glm(path_data, path_mask, path_ouput, contrasts):
             nib.save(corrected_z_map, os.path.join(path_out, f"z_map_thresholded_q{str(threshold).split(".")[1]}_{contrast}.nii.gz"))        
 
 
-
-
 if __name__ == "__main__":
     parser = ArgumentParser()
 
@@ -114,12 +112,6 @@ if __name__ == "__main__":
         default=None,
         help="Directory to save the fixed effect output. If None, data will be saved in `path_data`"
     )
-    parser.add_argument(
-        "--subject",
-        type=str,
-        default=None,
-        help="To analyze data from a specific participant, this argument can be used to specify the subject id"
-    )
     args = parser.parse_args()
 
     # Get contrasts
@@ -129,6 +121,7 @@ if __name__ == "__main__":
         list_contrasts = json.load(file)
         if not list_contrasts:
             raise ValueError(f"`list_contrasts` can not be an empty dictionnary.")
+        file.close()
 
     # Run second level analyses
     run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts)

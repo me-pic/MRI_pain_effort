@@ -158,6 +158,7 @@ if __name__ == "__main__":
         list_contrasts = json.load(file)
         if list_contrasts["contrasts"] == "":
             raise ValueError(f"`contrasts` can not be an empty list.")
+        file.close()
 
     # Run fixed effect analyses
     Parallel(n_jobs=3)(
