@@ -56,8 +56,9 @@ def run_second_level_glm(path_data, path_mask, path_ouput, contrasts):
                 raise ValueError(f"Number of files for {cond} is different than the number of subjects. {len(tmp_conditions)} =! {len(subjects)}. ")
 
             # Get conditions and values
-            second_level_input.append(tmp_conditions)
-            values.append(contrasts[contrast]["values"][idx] * len(tmp_conditions))
+            second_level_input = [*second_level_input, *tmp_conditions]
+            tmp_values = [contrasts[contrast]["values"][idx]] * len(tmp_conditions)
+            values = [*values, *tmp_values]
 
         # Create subject regressors
         subject_effect = np.vstack([np.eye(len(subjects)) for _ in range(len(contrasts[contrast]))])

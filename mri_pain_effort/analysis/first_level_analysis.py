@@ -16,7 +16,7 @@ from nilearn.glm.first_level import FirstLevelModel
 from mri_pain_effort.dataset.first_level_contrasts import make_localizer_contrasts
 
 
-def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_variance', 'effect_size'], list_contrasts=None):
+def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_variance', 'effect_size']):
     """
     Compute First Level GLM to get activation maps
 
@@ -133,24 +133,20 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             #for contrast in contrasts:
             print("... Computing contrasts")
             for contrast_id, contrast_val in localizer_contrasts.items():
-                if list_contrasts is not None:
-                    if contrast_id in list_contrasts:
-                        valid_contrast = True
-                else:
-                    valid_contrast = True
-                    
-                if valid_contrast:
-                    print(f"\n    Contrast: {contrast_id}")
-                    if isinstance(output_type, str):
-                        output_type = [output_type]
+                print(f"\n    Contrast: {contrast_id}")
+                if isinstance(output_type, str):
+                    output_type = [output_type]
 
-                    for output in output_type:
+                for output in output_type:
+                    try:
                         dictionary_contrasts[contrast_id] = fmri_glm.compute_contrast(contrast_val, output_type=output)
                         # Saving the ouptuts
                         stats_type=''.join(output.split('_'))
                         print(f"    Saving: sub-{subject}_task-pain_run-{run}_stat-{stats_type}_desc-{contrast_id}.nii.gz")
                         nib.save(dictionary_contrasts[contrast_id], os.path.join(path_out, f"sub-{subject}_task-pain_run-{run}_stat-{stats_type}_desc-{contrast_id}.nii.gz"))
-
+                    except:
+                        print(f"Could not compute contrast {contrast_id} for sub-{subject}_run-{run}")
+                        continue
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -194,19 +190,10 @@ if __name__ == "__main__":
         conf_var = json.load(file)
         file.close()
 
-    # Get constrasts to save. If the list is empty, all computed contrasts will be saved
-    with open(config_path / "contrasts_first_level.json", "r") as file:
-        list_contrasts = json.load(file)
-        if list_contrasts["contrasts"] == "":
-            list_contrasts = None
-        else:
-            list_contrasts = list_contrasts["contrasts"]
-        file.close()
-
     # Run first level analyses
     Parallel(n_jobs=3)(
         delayed(run_first_level_glm)(
             args.path_data, args.path_mask, args.path_output, sub, 
-            conf_var=conf_var["confounds"], list_contrasts=list_contrasts
+            conf_var=conf_var["confounds"]
         ) for sub in subjects
     )

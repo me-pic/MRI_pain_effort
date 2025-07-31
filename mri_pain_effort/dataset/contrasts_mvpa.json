@@ -1,0 +1,8 @@
+{
+    "contrasts" : [
+        "contractionpain5", 
+        "contractionpain30", 
+        "contractionwarm5", 
+        "contractionwarm30"
+    ]
+}

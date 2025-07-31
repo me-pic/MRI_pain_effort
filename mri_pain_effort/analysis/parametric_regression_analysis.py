@@ -95,7 +95,7 @@ def _build_design_matrix(data, path_events, regressors, param_regressor, run_ren
         regressors.loc[regressors.index[idx], run] = 1
 
         # Retrieve events file associated to that specific subject/run
-        layout_events = BIDSLayout(path_events)
+        layout_events = BIDSLayout(path_events, is_derivative=True)
         event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
         
         # Making sure we have only one event file for a given subject/run

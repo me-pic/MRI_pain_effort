@@ -1,30 +1,190 @@
-#%%
 import os
-import nibabel as nib
+import json
+import pprint
+
 import numpy as np
 import pandas as pd
+import nibabel as nib
+
+from time import time
+from pathlib import Path
 from bids import BIDSLayout
-from matplotlib import pyplot as plt
-import seaborn as sns
+from argparse import ArgumentParser
+
+from nilearn.maskers import NiftiMasker
+
+from sklearn.linear_model import Lasso
 
 from importlib import reload
-import lasso_utils as lu
+import utils_FC
 reload(lu)
+import lasso_utils as lu
+reload(utils_FC)
 
-path_activation_maps = '/scratch/imonti/output_activation_maps_tbyt_30s'
-layout_activation_maps = BIDSLayout(path_activation_maps, is_derivative=True)
-subjects = layout_activation_maps.get_subjects()
-conditions= ['contractionpain5', 'contractionpain30', 'contractionwarm5', 'contractionwarm30']
+PARAMS = {
+    'random_seed': 40,
+    'n_splits': 10,
+    'n_components': 25
+    'test_size': 0.2,
+    'standardize': True,
+    'n_perm': 5000,
+    'n_boot': 5000,
+    'n_jobs': 32
+}
 
-list_maps = [
-    os.path.join(path_activation_maps, map.filename.split("_")[0], 'func', map.filename)
-    for map in layout_activation_maps.get(extension="nii.gz")
-    if any(cond in map.filename for cond in conditions)
-    and 'plus' not in map.filename
-    and 'min' not in map.filename
-    and 'effectsize' in map.filename
-]
-list_maps
+
+def run_mvpa(path_data, path_events, path_mask, path_ouput, contrasts):
+    """
+    Compute MVPA
+
+    Parameters
+    ----------
+    path_data: str
+        Directory containing the contrast files
+    path_events: str
+        Directory containing the events files
+    path_mask: str
+        Path to the group mask
+    path_output: str
+        Directory to save the output
+    contrasts:
+        List containing the contrasts on which to compute the MVPA
+    """
+    # Get BIDS layout
+    layout = BIDSLayout(path_data, is_derivative=True)
+    # Get number of subjects
+    subjects = layout.get_subjects()
+
+    # Create output path if doesn't exit
+    if path_output is None:
+        path_output = path_data
+    Path(path_output).mkdir(parents=True, exist_ok=True)
+
+    # Get contrast files
+    list_maps = layout.get(extension='nii.gz', desc=contrasts, invalid_filters='allow')
+    # Filter to get the activation maps
+    list_maps = [f for f in list_maps if 'stat-effectsize' in f.filename]
+    # Check the files collected
+    print("collected files: ")
+    pprint.pprint(list_maps)
+
+    # Load events files
+    layout_events = BIDSLayout(path_events, is_derivative=True)
+    events = layout_events.get(extension='tsv', suffix='events')
+
+
+def run_permutation():
+    """
+    """
+    reload(lu)
+    # # Permutation test using Sklearn permutation_test_score
+    mask_name = 'mask-shaeffer100_roi-SMAaMCC'
+    path_output = os.path.join(os.getcwd(), 'effort_regression/')
+
+    # prem with Group K fold
+    print('==Starting permutation test==')
+    start_time = time()
+    score, perm_scores, pvalue = lu.compute_permutation(
+        X, y, 
+        groups, 
+        reg=reg,
+        splits=PARAMS['n_splits'], 
+        test_size=PARAMS['test_size'],
+        n_components=PARAMS['n_components'],
+        random_seed=PARAMS['random_seed'],
+        n_permutations=PARAMS['n_perm'],
+        n_jobs=PARAMS['n_jobs']
+    )
+    
+    perm_dict = {'score': score, 'perm_scores': perm_scores.tolist(), 'pvalue': pvalue}
+
+    filename_perm = f"permutation_output_{mask_name}.json"
+    filepath_perm = os.path.join(path_output, filename_perm)
+    with open(filename_perm, 'w') as fp:
+        json.dump(perm_dict, fp)
+
+    print(f"Permutation test completed in {time() - start_time:.2f} seconds.")
+
+
+def run_bootstrap():
+    """
+    """
+    print('==Starting bootstrap test==')
+    resampling_array, resampling_coef = lu.bootstrap_test(
+        X, np.array(y),
+        np.array(groups),
+        reg=reg,
+        splits=PARAMS['n_splits'],
+        test_size=PARAMS['test_size'],
+        n_components=PARAMS['n_components'],
+        njobs=PARAMS['n_jobs'],
+        n_resampling=PARAMS['n_boot'],
+        standard=PARAMS['standardize'],
+        random_seed=PARAMS['ransom_seed'],
+    )
+
+    z, pval, pval_bonf, z_fdr, z_bonf, z_unc001, z_unc005, z_unc01, z_unc05 = lu.bootstrap_scores(resampling_array, threshold=True)
+
+    print('==Inverse transform + save coeff imgs==')
+    np.savez(os.path.join(path_output, f"bootstrap_lasso_sample_{N_BOOT}_{mask_name}"), array = resampling_array, coef = resampling_coef, z = z, pval = pval, pval_bonf = pval_bonf)
+    unmask_z_fdr = unmask(z_fdr, masker)
+    nib.save(unmask_z_fdr, os.path.join(path_output, f'z_standardized_{mask_name}_fdr.nii.gz'))
+    unmask_z_bonf = unmask(z_bonf, masker)
+    nib.save(unmask_z_bonf, os.path.join(path_output, f'z_standardized_{mask_name}_bonf.nii.gz'))
+    unmask_z_unc001 = unmask(z_unc001, masker)
+    nib.save(unmask_z_unc001, os.path.join(path_output, f'z_standardized_{mask_name}_unc001.nii.gz'))
+    unmask_z_unc005 = unmask(z_unc005, masker)
+    nib.save(unmask_z_unc005, os.path.join(path_output, f'z_standardized_{mask_name}_unc005.nii.gz'))
+    unmask_z_unc01 = unmask(z_unc01, masker)
+    nib.save(unmask_z_unc01, os.path.join(path_output, f'z_standardized_{mask_name}_unc01.nii.gz'))
+    unmask_z_unc05 = unmask(z_unc05, masker)
+    nib.save(unmask_z_unc05, os.path.join(path_output, f'z_standardized_{mask_name}_unc05.nii.gz'))
+
+    print(resampling_coef.shape)
+
+def _unmask(z, masker):
+    """Unmask the z scores to the original image space."""
+    return masker.inverse_transform(z)
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser()   
+    parser.add_argument(
+        "path_data",
+        type=str,
+        help="Directory containg the data to use as input for the MVPA"
+    )
+    parser.add_argument(
+        "path_mask",
+        type=str,
+        help="Path to the mask used to extract signal"
+    ) 
+    parser.add_argument(
+        "--path_output",
+        type=str,
+        default=None,
+        help="Directory to save the fixed effect output. If None, data will be saved in `path_data`"
+    )
+    args = parser.parse_args()
+
+    # Get contrasts
+    config_path = Path(__file__).parents[1] / "dataset"
+
+    with open(config_path / "contrasts_mvpa.json", "r") as file:
+        list_contrasts = json.load(file)
+        if not list_contrasts:
+            raise ValueError(f"`list_contrasts` can not be an empty dictionnary.")
+        file.close()
+
+    run_mvpa(args.path_data, args.path_mask, args.path_output, list_contrasts)
+
+
+
+
+
+
+
+# TODO : organize code in functions
 
 #%%
 effort_ratings = {}
@@ -64,59 +224,9 @@ for i, act_map in enumerate(list_maps):
 print("Total maps processed:", len(list_maps))
 print("Total ratings obtained:", len(effort_ratings))
 
-#%%
-# Load Atlas regions
-# ------------------
-from nilearn.datasets import fetch_atlas_schaefer_2018
-from nilearn.maskers import NiftiLabelsMasker
-from nilearn import plotting
-from nilearn.image import math_img
-import nibabel as nib
-import pandas as pd
-from importlib import reload
-import utils_FC
-reload(utils_FC)
-
-atlas_data = fetch_atlas_schaefer_2018(n_rois=100, yeo_networks=7, resolution_mm=2)
-atlas = nib.load(atlas_data['maps'])
-labels_bytes = atlas_data['labels']
-labels = [label.decode('utf-8') if isinstance(label, bytes) else label for label in labels_bytes]
-
-masker = NiftiLabelsMasker(labels_img=atlas, labels = labels)
-masker.fit()
-coords = plotting.find_parcellation_cut_coords(labels_img=atlas)
-
-# Build DataFrame of region + coordinates
-df_labels_coords = pd.DataFrame({
-    'index': list(range(len(labels))),
-    'region': labels,
-    'x': [round(c[0], 2) for c in coords],
-    'y': [round(c[1], 2) for c in coords],
-    'z': [round(c[2], 2) for c in coords],
-})
-df_labels_coords
-
-#%%
-roi_indices = [77,65,36,29,27,14]      # L_aMCC]
-
-atlas_data = atlas.get_fdata()
-adj_roi_indices = [el + 1 for el in roi_indices]  # Adjust for 1-based indexing
-
-binary_mask_data = np.isin(atlas_data, adj_roi_indices).astype(np.uint8)
-binary_mask_img = nib.Nifti1Image(binary_mask_data, affine=atlas.affine)
-
-plotting.plot_roi(binary_mask_img, title='Custom SMA + aMCC Mask', cut_coords=(0, 0, 40), cmap='Greens')
-
-binary_mask_img.to_filename('/home/dsutterlin/projects/pain_effort2025/mask_sma_amcc_from_shaeffer100.nii.gz')
-
-MASK = nib.load('/home/dsutterlin/projects/pain_effort2025/mask_sma_amcc_from_shaeffer100.nii.gz')
-
-plotting.view_img(binary_mask_img, threshold=0.5, colorbar=True, title='Custom SMA + aMCC Mask', cmap='Greens')
-
+#
 #%%
 # prepare X data for regression
-
-from nilearn.maskers import NiftiMasker
 
 if os.path.exists(os.path.join(os.getcwd(), 'effort_regression/X_transformed.npz')):
     X = np.load(os.path.join(os.getcwd(), 'effort_regression/X_transformed.npz'))['X']
@@ -290,35 +400,26 @@ if check_components:
 
 
 #%%
-from sklearn.linear_model import Lasso
-import lasso_utils as lu
-from importlib import reload
 reload(lu)
 
 # Set model parameters
-n_splits = 10
 N_COMPONENTS = 25
-test_size = 0.2 #will use group shuffle split!
 reg = Lasso()
-random_seed = 40 # Unused since procedure = GKF 
-standardize = True #standardScaler 
 print('N components for PCA : ', N_COMPONENTS)
 y = df['rating_effort']
 groups = df['subject_id']
 
 # Run the train-test model using GroupKFold
 X_train, y_train, X_test, y_test, y_pred, models, model_voxel, df_metrics = lu.train_test_model(
-    X, y, groups, reg=reg, n_splits=n_splits,test_size=test_size, n_components=N_COMPONENTS,
-    random_seed=random_seed, print_verbose=True, standard=standardize
+    X, y, groups, reg=reg, n_splits=PARAMS['n_splits'],test_size=PARAMS['test_size'], n_components=N_COMPONENTS,
+    random_seed=PARAMS['random_seed'], print_verbose=True, standard=PARAMS['standardize']
 )
 
 print("Cross-validation metrics:")
 print(df_metrics)
 
 
-#%%
-# # Approx. ~ train 90%, test 10%.. ??
-# X_train[0].shape, y_train[0].shape, X_train[0].shape[0]/X.shape[0], y_train[0].shape[0]/y.shape[0]
+
 #%%
 #plots 
 path_output = os.path.join(os.getcwd(), 'effort_regression/')
@@ -332,74 +433,7 @@ lu.reg_plot_performance(y_test, y_pred, path_output=path_output,
                      filename='regression_plot_performance', extension='svg')
 df_metrics.to_csv(os.path.join(path_output, 'df_metrics.csv'), index=False)
 
-#%%
-#BOOTSTRAP + PERM
-import lasso_utils as lu
-import json
-from time import time
-reload(lu)
 
-# # Permutation test using Sklearn permutation_test_score
-N_PERM = 5000
-n_jobs = 32
-mask_name = 'sma_amcc_from_shaeffer100'
-path_output = os.path.join(os.getcwd(), 'effort_regression/')
-
-# prem with Group K fold
-print('==Starting permutation test==')
-start_time = time()
-score, perm_scores, pvalue = lu.compute_permutation(X, y, groups, reg=reg,splits=n_splits, test_size=test_size, n_components = N_COMPONENTS, random_seed=random_seed, n_permutations=N_PERM, n_jobs=n_jobs)
-perm_dict = {'score': score, 'perm_scores': perm_scores.tolist(), 'pvalue': pvalue}
-
-filename_perm = f"permutation_output_{mask_name}.json"
-filepath_perm = os.path.join(path_output, filename_perm)
-with open(filename_perm, 'w') as fp:
-    json.dump(perm_dict, fp)
-
-print(f"Permutation test completed in {time() - start_time:.2f} seconds.")
-
-# # BOOTSTRAP
-N_BOOT = 5000
-
-def unmask(z, masker):
-    """Unmask the z scores to the original image space."""
-    img3d = masker.inverse_transform(z)
-    return img3d
-
-print('==Starting bootstrap test==')
-resampling_array, resampling_coef = lu.bootstrap_test(
-    X, np.array(y),
-    np.array(groups),
-    reg=reg,
-    splits=n_splits,
-    test_size=test_size,
-    n_components=N_COMPONENTS,
-    njobs=n_jobs,
-    n_resampling=N_BOOT,
-    standard=standardize,
-    random_seed=random_seed,
-)
-
-z, pval, pval_bonf, z_fdr, z_bonf, z_unc001, z_unc005, z_unc01, z_unc05 = lu.bootstrap_scores(resampling_array, threshold=True)
-
-print('==Inverse transform + save coeff imgs==')
-np.savez(os.path.join(path_output, f"bootstrap_lasso_sample_{N_BOOT}_{mask_name}"), array = resampling_array, coef = resampling_coef, z = z, pval = pval, pval_bonf = pval_bonf)
-unmask_z_fdr = unmask(z_fdr, masker)
-nib.save(unmask_z_fdr, os.path.join(path_output, f'z_standardized_{mask_name}_fdr.nii.gz'))
-unmask_z_bonf = unmask(z_bonf, masker)
-nib.save(unmask_z_bonf, os.path.join(path_output, f'z_standardized_{mask_name}_bonf.nii.gz'))
-unmask_z_unc001 = unmask(z_unc001, masker)
-nib.save(unmask_z_unc001, os.path.join(path_output, f'z_standardized_{mask_name}_unc001.nii.gz'))
-unmask_z_unc005 = unmask(z_unc005, masker)
-nib.save(unmask_z_unc005, os.path.join(path_output, f'z_standardized_{mask_name}_unc005.nii.gz'))
-unmask_z_unc01 = unmask(z_unc01, masker)
-nib.save(unmask_z_unc01, os.path.join(path_output, f'z_standardized_{mask_name}_unc01.nii.gz'))
-unmask_z_unc05 = unmask(z_unc05, masker)
-nib.save(unmask_z_unc05, os.path.join(path_output, f'z_standardized_{mask_name}_unc05.nii.gz'))
-
-
-
-print(resampling_coef.shape)
 
 print('Done with all!!!!!')
 # %%
