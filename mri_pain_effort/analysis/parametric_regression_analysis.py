@@ -13,7 +13,7 @@ from nilearn.glm import threshold_stats_img
 from nilearn.glm.second_level import SecondLevelModel
 
 
-def run_parametric_regression(path_data, path_events, path_mask, path_output, run_renaming=None):
+def run_parametric_regression(path_data, path_events, path_mask, path_output, contrasts, run_renaming=None):
     """
     Compute parametric regression
 
@@ -32,7 +32,6 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, ru
     """
     # Get BIDS layout
     layout = BIDSLayout(path_data, is_derivative=True)
-    layout_events = BIDSLayout(path_events)
 
     # Get number of subjects
     subjects = layout.get_subjects()
@@ -41,11 +40,25 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, ru
     if path_output is None:
         path_output = path_data
     Path(path_output).mkdir(parents=True, exist_ok=True)
+
+    # Iterating trough contrasts
+    for idx, contrast in contrasts:
+        print(f"\nComputing parametric regression with contrast {contrast}")
+        # Get conditions files
+        tmp_conditions = layout.get(extension='nii.gz', desc=contrasts[contrast]['conditions'], invalid_filters='allow')
+        # Filter to get the fixed effect output
+        tmp_conditions = [f for f in tmp_conditions if 'stat-effectsize' in f.filename]
+        # Check the files collected
+        print("collected files: ")
+        pprint.pprint(tmp_conditions)
+
+        # Build design matrix
+        design_matrix = _build_design_matrix(tmp_conditions, run_renaming=run_renaming)
+
     
-    return
 
 
-def _build_design_matrix(data, regressors, param_regressor):
+def _build_design_matrix(data, path_events, regressors, param_regressor, run_renaming=None):
     """
     Build design matrix to use for the parametric regression
 
@@ -53,12 +66,57 @@ def _build_design_matrix(data, regressors, param_regressor):
     ----------
     data: list
         List containing the activation maps filename
+    path_events: str
+        Directory containing the events files
     regressors: DataFrame
         Empty DataFrame containing the name of the columns
     param_regressor: str
         Name of the parametric regressor to include. The name should match the one in the *_events.tsv files
+
+    Return
+    ------
+
     """
-    return
+    for idx, d in data:
+        print(f"\nAdding {d.filename} to design_matrix")
+
+        # Retrieve entties of the BIDSImageFile
+        entities = d.get_entities()
+        subject = entities['subject']
+        run = entities['run']
+
+        # Add subject the DataFrame
+        regressors.loc[regressors.index[idx], subject] = 1
+
+        # Add run in the DataFrame
+        if subject in run_renaming.keys():
+            run = run_renaming[subject].get(run, run)
+
+        regressors.loc[regressors.index[idx], run] = 1
+
+        # Retrieve events file associated to that specific subject/run
+        layout_events = BIDSLayout(path_events)
+        event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
+        
+        # Making sure we have only one event file for a given subject/run
+        if len(event) == 0:
+            warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
+            continue
+        if len(event) > 1:
+            raise ValueError(f"Multiple events files found for subject sub-{subject}, run {run}...")
+
+        print(f"... Loading events file: {event[0].filename}")
+        # Get events
+        event = event[0].get_df()
+
+
+
+
+
+
+
+
+    return regressors
 
 
 if __name__ == "__main__":
@@ -94,7 +152,14 @@ if __name__ == "__main__":
         with open(config_path / "run_renaming.json", "r") as file:
             run_renaming = json.load(file)
             file.close()
-    
+    else:
+        run_renaming = None
+
+    with open(config_path / "contrasts_parametric_regression.json", "r") as file:
+        list_contrasts = json.load(file)
+        if not list_contrasts:
+            raise ValueError(f"`list_contrasts` can not be an empty dictionnary.")
+        file.close()
 
     # Run second level analyses
-    run_parametric_regression(args.path_data, args.path_mask, args.path_output, run_renaming)
+    run_parametric_regression(args.path_data, args.path_mask, args.path_output, list_contrasts, run_renaming)

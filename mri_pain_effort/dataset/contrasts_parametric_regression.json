@@ -1,0 +1,20 @@
+{
+    "contractionall": {
+        "conditions": [
+            "contractionwarm5",
+            "contractionwarm30",
+            "contractionpain5",
+            "contractionpain30",
+            "contractionsolo5",
+            "contractionsolo30"
+        ]
+    },
+    "contractionthermal": {
+        "conditions": [
+            "contractionwarm5",
+            "contractionwarm30",
+            "contractionpain5",
+            "contractionpain30"
+        ]
+    }
+}
