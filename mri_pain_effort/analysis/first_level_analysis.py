@@ -63,7 +63,7 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
         # Create output path if doesn't exit
         path_out = os.path.join(path_output, f'sub-{subject}', 'func')
         Path(path_out).mkdir(parents=True, exist_ok=True)
-        
+
         # Get BOLD files
         bolds = layout.get(subject=subject, extension="nii.gz", suffix="bold")
         print(f"\n{bolds}")
@@ -129,14 +129,21 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             print("... Defining contrasts")
             localizer_contrasts = make_localizer_contrasts(design_matrix, conf_var)
             # Compute the contrasts
-            dict_maps, dictionary_contrasts = {}, {}
+            dictionary_contrasts = {}
             #for contrast in contrasts:
             print("... Computing contrasts")
             for contrast_id, contrast_val in localizer_contrasts.items():
-                if contrast_id in list_contrasts or list_contrasts is None:
+                if list_contrasts is not None:
+                    if contrast_id in list_contrasts:
+                        valid_contrast = True
+                else:
+                    valid_contrast = True
+                    
+                if valid_contrast:
                     print(f"\n    Contrast: {contrast_id}")
                     if isinstance(output_type, str):
                         output_type = [output_type]
+
                     for output in output_type:
                         dictionary_contrasts[contrast_id] = fmri_glm.compute_contrast(contrast_val, output_type=output)
                         # Saving the ouptuts

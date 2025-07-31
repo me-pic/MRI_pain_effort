@@ -22,14 +22,14 @@ def make_localizer_contrasts(design_matrix, confounds):
         Dictionary containing the first level contrasts.
     """
     # Remove nuisance regressors from `design_matrix`
-    design_matrix = design_matrix.drop(columns=confounds)
+    to_rm = [col for col in design_matrix.columns if 'drift' in col or 'constant' in col]
+    design_matrix = design_matrix.drop(columns=[*confounds, *to_rm])
 
     # Instantiate dictionary containg the regressors of interest
     contrasts = {
-        column: np.eye(design_matrix.shape[1][i])
+        column: np.eye(design_matrix.shape[1])[i]
         for i, column in enumerate(design_matrix.columns)
     }
-
     # Define contrasts
     conditions = list(contrasts.keys())
 
@@ -41,134 +41,63 @@ def make_localizer_contrasts(design_matrix, confounds):
     # ##    contrasts.               ## #
     # ################################# #
 
-    contrasts['warm5'] = sum_contrasts(contrasts, conditions, '_Warm_5')
-    contrasts['warm30'] = sum_contrasts(contrasts, conditions, '_Warm_30')
-    contrasts['pain5'] = sum_contrasts(contrasts, conditions, '_Pain_5')
-    contrasts['pain30'] = sum_contrasts(contrasts, conditions, '_Pain_30')
-    contrasts['contractwarm5'] = sum_contrasts(contrasts, conditions, 'ContractionWarm_5')
-    contrasts['contractwarm30'] = sum_contrasts(contrasts, conditions, 'ContractionWarm_30')
-    contrasts['contractpain5'] = sum_contrasts(contrasts, conditions, 'ContractionPain_5')
-    contrasts['contractpain30'] = sum_contrasts(contrasts, conditions, 'ContractionPain_30')
-    contrasts['contractsolo5'] = sum_contrasts(contrasts, conditions, 'ContractionSolo_5')
-    contrasts['contractsolo30'] = sum_contrasts(contrasts, conditions, 'ContractionSolo_30')
+    contrasts['warm5'] = _sum_contrasts(contrasts, conditions, '_Warm_5')
+    contrasts['warm30'] = _sum_contrasts(contrasts, conditions, '_Warm_30')
+    contrasts['pain5'] = _sum_contrasts(contrasts, conditions, '_Pain_5')
+    contrasts['pain30'] = _sum_contrasts(contrasts, conditions, '_Pain_30')
+    contrasts['contractionwarm5'] = _sum_contrasts(contrasts, conditions, 'ContractionWarm_5')
+    contrasts['contractionwarm30'] = _sum_contrasts(contrasts, conditions, 'ContractionWarm_30')
+    contrasts['contractionpain5'] = _sum_contrasts(contrasts, conditions, 'ContractionPain_5')
+    contrasts['contractionpain30'] = _sum_contrasts(contrasts, conditions, 'ContractionPain_30')
+    contrasts['contractionsolo5'] = _sum_contrasts(contrasts, conditions, 'ContractionSolo_5')
+    contrasts['contractionsolo30'] = _sum_contrasts(contrasts, conditions, 'ContractionSolo_30')
 
     # one contrast adding all conditions involving thermal stimulation
     contrasts["pain"] = (
         contrasts["pain5"]+ contrasts["pain30"])
     contrasts["warm"] = (
         contrasts["warm5"]+contrasts["warm30"])
-    contrasts["thermalstim"] = (
+    contrasts["thermalstimulation"] = (
         contrasts["pain"]
         + contrasts["warm"]
     )
 
     # one contrast adding all conditions involving contraction at 5%
     contrasts["contraction5"] = (
-        contrasts["contractwarm5"]+contrasts['contractpain5'] + contrasts['contractsolo5'])
+        contrasts["contractionwarm5"]+contrasts['contractionpain5'] + contrasts['contractionsolo5'])
     
    # one contrast adding all conditions involving contraction at 5% during thermal stimulation
     contrasts["contraction5thermal"] = (
-        contrasts["contractwarm5"]+contrasts['contractpain5'])
+        contrasts["contractionwarm5"]+contrasts['contractionpain5'])
     
     # one contrast adding all conditions involving contraction at 30%
     contrasts["contraction30"] = (
-        contrasts['contractwarm30']+ contrasts['contractpain30'] +contrasts['contractsolo30']
+        contrasts['contractionwarm30']+ contrasts['contractionpain30'] +contrasts['contractionsolo30']
     )
-    contrasts["contractions"] = (
+    contrasts["contraction5plus30"] = (
         contrasts['contraction5']+ contrasts['contraction30']
     )
 
     # one contrast adding all conditions involving contraction at 30% during thermal stimulation
     contrasts["contraction30thermal"] = (
-        contrasts['contractwarm30']+ contrasts['contractpain30']
+        contrasts['contractionwarm30']+ contrasts['contractionpain30']
     )
     
     # one contrast adding all conditions involving contraction during warm
     contrasts["contractionwarm"] = (
-        contrasts['contractwarm5']+contrasts['contractwarm30']
+        contrasts['contractionwarm5']+contrasts['contractionwarm30']
     )
 
     # one contrast adding all conditions involving contraction during pain
     contrasts["contractionpain"] = (
-        contrasts['contractpain5']+contrasts['contractpain30']
+        contrasts['contractionpain5']+contrasts['contractionpain30']
     )
     contrasts["contractionsolo5plus30"] = (
-        contrasts['contractsolo5']+contrasts['contractsolo30']
+        contrasts['contractionsolo5']+contrasts['contractionsolo30']
     )
-    contrasts["contractionthermal"] = (
+    contrasts["contractionthermal5plus30"] = (
         contrasts['contractionwarm']+contrasts['contractionpain']
     )
-
-    # Short dictionary of more relevant contrasts
-    contrasts = {
-        "pain": (
-            contrasts["pain"]
-        ),
-        "warm": (
-            contrasts["warm"]
-        ),
-        "contractionsolo30": (
-            contrasts["contractsolo30"]
-        ),
-        "contractionsolo5": (
-            contrasts["contractsolo5"]
-        ),
-        "contractionsolo5plus30": (
-            contrasts["contractionsolo5plus30"]
-        ),
-        "pain5": (
-            contrasts["pain5"]
-        ),
-        "warm5": (
-            contrasts["warm5"]
-        ),
-        "pain30": (
-            contrasts["pain30"]
-        ),
-        "warm30": (
-            contrasts["warm30"]
-        ),
-        "contractionpain30": (
-            contrasts["contractpain30"]
-        ),
-        "contractionwarm30": (
-            contrasts["contractwarm30"]
-        ),
-        "contractionpain5": (
-            contrasts["contractpain5"]
-        ),
-        "contractionwarm5": (
-            contrasts["contractwarm5"]
-        ),
-        "thermalstim": (
-            contrasts["thermalstimulation"]
-        ),
-        "contraction5": (
-            contrasts["contraction5"]
-        ),
-        "contraction30": (
-            contrasts["contraction30"]
-        ),
-         "contraction5thermal": (
-            contrasts["contraction5thermal"]
-        ),
-        "contraction30thermal": (
-            contrasts["contraction30thermal"]
-        ),
-        "contractionthermal5plus30": (
-            contrasts["contractionthermal"]
-        ),
-        "contractionwarm": (
-            contrasts["contractionwarm"]
-        ),
-        "contractionpain": (
-            contrasts["contractionpain"]
-        ),
-        "contraction5plus30": (
-            contrasts["contractions"]
-        ), 
-       
-    }
 
     return contrasts
 
