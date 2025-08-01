@@ -1,4 +1,5 @@
 import os
+import json
 import pprint
 import nibabel as nib
 
@@ -55,7 +56,7 @@ def fixed_effects(path_data, path_mask, path_output, sub, contrasts):
         Path(sub_out_dir).mkdir(parents=True, exist_ok=True)
 
         # Iterating trough contrasts
-        for contrast in contrasts:
+        for contrast in contrasts['contrasts']:
             print(f"\nComputing fixed effect for sub-{sub} and contrast {contrast}")
 
             # Get the data for this subject and contrast
@@ -75,15 +76,15 @@ def fixed_effects(path_data, path_mask, path_output, sub, contrasts):
 
             # Checks
             if not effectsize:
-                print(f"No effect size images found for sub-{sub} and contrast {desc}. Skipping.")
+                print(f"No effect size images found for sub-{sub} and contrast {contrast}. Skipping.")
                 continue
             if not effectvariance:
-                print(f"No variance images found for sub-{sub} and contrast {desc}. Skipping.")
+                print(f"No variance images found for sub-{sub} and contrast {contrast}. Skipping.")
                 continue
 
             if len(effectsize) != len(effectvariance):
                 raise ValueError(f"Not the same number of files found for {effectsize} and {effectvariance}")
-            if (runs_effectsize==runs_effectvariance):
+            if runs_effectsize != runs_effectvariance:
                 raise ValueError(f"Runs are not in the same order: {runs_effectsize} vs {runs_effectvariance}")
 
             # Compute fixed effect
@@ -94,10 +95,7 @@ def fixed_effects(path_data, path_mask, path_output, sub, contrasts):
             )
 
             # Save the computed fixed effect outputs with safe file saving
-            safe_save(os.path.join(sub_out_dir, f"sub-{sub}_task-pain_stat-contrast_desc-{desc}.nii.gz"), fixed_fx_contrast)
-            safe_save(os.path.join(sub_out_dir, f"sub-{sub}_task-pain_stat-variance_desc-{desc}.nii.gz"), fixed_fx_variance)
-            safe_save(os.path.join(sub_out_dir, f"sub-{sub}_task-pain_stat-stat_desc-{desc}.nii.gz"), fixed_fx_stat)
-
+            _safe_save(os.path.join(sub_out_dir, f"sub-{sub}_task-pain_stat-contrast_desc-{contrast}.nii.gz"), fixed_fx_contrast)
 
 
 def _safe_save(file_path, data):
@@ -106,9 +104,9 @@ def _safe_save(file_path, data):
         base, ext = os.path.splitext(file_path)
         i = 1
         # Keep incrementing the suffix (e.g., _v1, _v2, etc.) until a unique file name is found
-        while os.path.exists(f"{base}_v{i}{ext}"):
+        while os.path.exists(f"{base.split('.')[0]}_v{i}.nii.gz"):
             i += 1
-        file_path = f"{base}_v{i}{ext}"
+        file_path = f"{base.split('.')[0]}_v{i}.nii.gz"
         print(f"File already exists. Saving as {file_path}")
     
     # Save the file
@@ -128,7 +126,7 @@ if __name__ == "__main__":
         type=str,
         help="Path to the mask used to extract signal"
     ) 
-    paser.add_argument(
+    parser.add_argument(
         "--path_output",
         type=str,
         default=None,
@@ -160,6 +158,8 @@ if __name__ == "__main__":
             raise ValueError(f"`contrasts` can not be an empty list.")
         file.close()
 
+    #fixed_effects(args.path_data, args.path_mask, args.path_output, '001', list_contrasts)
+    
     # Run fixed effect analyses
     Parallel(n_jobs=3)(
         delayed(fixed_effects)(

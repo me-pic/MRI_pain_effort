@@ -5,11 +5,15 @@ import pandas as pd
 import nibabel as nib
 
 from pathlib import Path
+from bids import BIDSLayout
 from argparse import ArgumentParser
 
+from nilearn.image import resample_to_img
 from nilearn.maskers import NiftiLabelsMasker
+from nilearn.masking import compute_multi_brain_mask
 from nilearn.datasets import fetch_atlas_schaefer_2018
 from nilearn.plotting import find_parcellation_cut_coords
+
 
 ROI = {
     "7Networks_RH_SalVentAttn_Med_2": 77,
@@ -19,6 +23,39 @@ ROI = {
     "7Networks_LH_SalVentAttn_Med_1": 27,
     "7Networks_LH_SomMot_6": 14
 }
+
+def create_group_masks(path_data, path_output):
+    """
+    Create a group mask using the T1w images
+
+    Parameters
+    ----------
+    path_data: str
+        Directory containing the fMRIPrep output with the T1w images
+    path_output: str
+        Directory to save the output
+    """
+    # Create path_output if it does not exist yet
+    Path(path_output).mkdir(parents=True, exist_ok=True)
+
+    # Get BIDS layout
+    layout = BIDSLayout(path_data, is_derivative=True)
+
+    # Get T1W files
+    files = layout.get(suffix='mask', space='MNI152NLin2009cAsym', desc='brain', extension='nii.gz')
+
+    # Compute the mask
+    mask = compute_multi_brain_mask(files, threshold=0.2, mask_type="whole-brain")
+
+    # Resample mask 
+    data = layout.get(subject='003', run='01', desc='preproc', suffix='bold', extension='nii.gz')
+    resampled_to_mask = resample_to_img(mask, data[0])
+
+    # Save mask
+    nib.save(resampled_to_mask, os.path.join(path_output, 'resampled_whole-brain_group_mask.nii.gz'))
+
+
+
 
 def create_schaefer_masker(path_output, save_coords=False):
     """
@@ -85,12 +122,32 @@ if __name__ == "__main__":
         help="Directory to save the fixed effect output. If None, data will be saved in `path_data`"
     )
     parser.add_argument(
+        "--path_data",
+        type=str,
+        default=None,
+        help="Directory containing the fMRIPrep output"
+
+    )
+    parser.add_argument(
         "--save_coords",
         action="store_true",
         help="If flag specified, schaefer regions coordinates will be save in tsv file"
 
     )
+    parser.add_argument(
+        "--group_mask",
+        action="store_true",
+        help="If specified, this script will run the `create_group_mask` function"
+    )
+    parser.add_argument(
+        "--schaefer",
+        action="store_true",
+        help="If specified, this script will run the `create_schaefer_masker` function"
+    )
     args = parser.parse_args()
 
-    create_schaefer_masker(args.path_output, args.save_coords)
+    if args.group_mask:
+        create_group_masks(args.path_data, args.path_output)
+    if args.schaefer:
+        create_schaefer_masker(args.path_output, args.save_coords)
 
