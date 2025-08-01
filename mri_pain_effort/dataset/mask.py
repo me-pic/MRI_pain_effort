@@ -42,7 +42,7 @@ def create_group_masks(path_data, path_output):
     layout = BIDSLayout(path_data, is_derivative=True)
 
     # Get T1W files
-    files = layout.get(suffix='mask', space='MNI152NLin2009cAsym', desc='brain', extension='nii.gz')
+    files = layout.get(suffix='mask', space='MNI152NLin2009cAsym', desc='brain', extension='nii.gz', datatype='anat')
 
     # Compute the mask
     mask = compute_multi_brain_mask(files, threshold=0.2, mask_type="whole-brain")
