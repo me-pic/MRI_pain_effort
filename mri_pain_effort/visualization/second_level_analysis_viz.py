@@ -37,7 +37,7 @@ def plot_brain_maps(path_data, path_output, coords_to_plot, extension='svg'):
     for axis, coord in coords_to_plot.items():
         for idx, c in enumerate(coord):
             fig, ax = plt.subplots(figsize=(1.5, 1.5))
-            if idx = 0:
+            if idx == 0:
                 plot_colorbar=True
             else:
                 plot_colorbar=False
