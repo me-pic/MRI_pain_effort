@@ -127,7 +127,11 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
 
             if save_matrix:
                 print("... Saving design matrix")
-                design_matrix.to_csv(os.path.join(path_out, f"sub-{subject}_task-pain_run-{run}_desc-designmatrices.tsv"))
+                design_matrix.to_csv(
+                    os.path.join(path_out, f"sub-{subject}_task-pain_run-{run}_desc-designmatrices.tsv"),
+                    sep='\t',
+                    index=False
+                )
             
             # Call the function to generate contrasts for all runs
             print("... Defining contrasts")
