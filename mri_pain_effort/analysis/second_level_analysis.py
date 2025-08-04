@@ -1,6 +1,9 @@
 import os
 import json
 import pprint
+
+import numpy as np
+import pandas as pd
 import nibabel as nib
 
 from pathlib import Path
@@ -11,7 +14,7 @@ from nilearn.glm import threshold_stats_img
 from nilearn.glm.second_level import SecondLevelModel
 
 
-def run_second_level_glm(path_data, path_mask, path_ouput, contrasts):
+def run_second_level_glm(path_data, path_mask, path_output, contrasts):
     """
     Compute Second Level GLM
 
@@ -42,12 +45,11 @@ def run_second_level_glm(path_data, path_mask, path_ouput, contrasts):
     # Iterating trough contrasts
     for contrast in contrasts:
         print(f"\nComputing fixed effect for contrast {contrast}")
-
-        for idx, cond in contrasts[contrast]:
+        for idx, cond in enumerate(contrasts[contrast]['conditions']):
             # Get conditions files
             tmp_conditions = layout.get(extension='nii.gz', desc=cond, invalid_filters='allow')
             # Filter to get the fixed effect output
-            tmp_conditions = [f for f in tmp_conditions if 'stat-contrast' in f.filename]
+            tmp_conditions = [f.get_image() for f in tmp_conditions if 'stat-contrast' in f.filename]
             # Check the files collected
             print("collected files: ")
             pprint.pprint(tmp_conditions)
@@ -72,18 +74,23 @@ def run_second_level_glm(path_data, path_mask, path_ouput, contrasts):
         # Check the shape of the design matrix
         print(f"Design matrix shape: {design_matrix.shape}")
 
+        print("... Fitting second level model")
         # Defining the SecondLevelModel
         second_level_model = SecondLevelModel(mask_img=path_mask)
         # Fitting the SecondLevelModel
         second_level_model = second_level_model.fit(
             second_level_input, design_matrix=design_matrix
         )
+
         # Get z maps
         z_map = second_level_model.compute_contrast(
             second_level_contrast=contrast,
             output_type="z_score",
         )
         # Saving the output
+        print("... Saving outputs")
+        design_matrix.to_csv(os.path.join(path_output, 'design_matrix.tsv'), sep='\t', index=False)
+
         nib.save(z_map, os.path.join(path_output, f"z_map_{contrast}.nii.gz"))
 
         # Apply the FDR correction on the map
@@ -92,7 +99,7 @@ def run_second_level_glm(path_data, path_mask, path_ouput, contrasts):
                 z_map, alpha=threshold, height_control="fdr"
             )
             # Save the corrected map
-            nib.save(corrected_z_map, os.path.join(path_out, f"z_map_thresholded_q{str(threshold).split(".")[1]}_{contrast}.nii.gz"))        
+            nib.save(corrected_z_map, os.path.join(path_output, f"z_map_thresholded_q{str(threshold).split('.')[1]}_{contrast}.nii.gz"))        
 
 
 if __name__ == "__main__":
@@ -108,7 +115,7 @@ if __name__ == "__main__":
         type=str,
         help="Path to the mask used to extract signal"
     ) 
-    paser.add_argument(
+    parser.add_argument(
         "--path_output",
         type=str,
         default=None,
