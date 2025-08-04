@@ -8,12 +8,12 @@ import numpy as np
 import pandas as pd
 
 from tqdm import tqdm
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, zscore, norm
 from joblib import Parallel, delayed
 
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import Lasso, LassoCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit, permutation_test_score
@@ -36,6 +36,7 @@ def split_data(X, Y, groups, n_splits,test_size=None, random_seed=42):
         y_test.append(Y[test_idx])
     return X_train, X_test, y_train, y_test
 
+
 def verbose(splits, X_train, X_test, y_train, y_test):
     for i in range(splits):
         print(f"Fold {i}:")
@@ -44,6 +45,7 @@ def verbose(splits, X_train, X_test, y_train, y_test):
         print(f"  y_Train: Mean = {y_train[i].mean():.4f} +/- {y_train[i].std():.4f}")
         print(f"  y_Test:  Mean = {y_test[i].mean():.4f} +/- {y_test[i].std():.4f}")
         print()
+
 
 def compute_metrics(y_test, y_pred, df, fold, print_verbose=True):
     pearson_r = pearsonr(y_test, y_pred)[0]
@@ -56,6 +58,7 @@ def compute_metrics(y_test, y_pred, df, fold, print_verbose=True):
         print(f"Fold {fold}: Pearson-r = {pearson_r:.4f}, R2 = {r2:.4f}, MAE = {mae:.4f}, MSE = {mse:.4f}, RMSE = {rmse:.4f}")
     return df
 
+
 def reg_PCA(n_component, reg=Lasso(), standard=False):
     pca = PCA(n_component)
     if standard:
@@ -63,6 +66,7 @@ def reg_PCA(n_component, reg=Lasso(), standard=False):
     else:
         steps = [('reduce_dim', pca), ('reg', reg)]
     return Pipeline(steps)
+
 
 def train_test_model(X, y, groups, reg=Lasso(), n_splits=5, test_size=None, n_components=None,
                      random_seed=42, print_verbose=True, standard=False):
@@ -90,9 +94,6 @@ def train_test_model(X, y, groups, reg=Lasso(), n_splits=5, test_size=None, n_co
         model_voxel.append(model_fit.named_steps['reduce_dim'].inverse_transform(coef))
         
     return X_train, y_train, X_test, y_test, y_pred_list, models, model_voxel, df_metrics
-
-#==============================
-
 
 
 def compute_permutation(X, y, gr, reg, splits=5,test_size=None, n_components=None, n_permutations=5000,n_jobs=None, scoring="r2", random_seed=42, verbose=3):
@@ -288,7 +289,6 @@ def _bootstrap_test(X, y, gr, reg, procedure, n_components, standard=False):
         
     return coefs_voxel
 
-from scipy.stats import zscore, norm, pearsonr
 
 # from nlTools 
 def fdr(p, q=0.05):
@@ -367,3 +367,115 @@ def bootstrap_scores(boot_coefs, threshold=False):
         return z_scores, pval, pval_bonf, z_fdr, z_bonf, z_unc001, z_unc005, z_unc01, z_unc05
     else:
         return z_scores, pval, pval_bonf
+
+def check_pca_components(X, y, subjects, path_output=None):
+    """
+    Parameters
+    ----------
+    X:
+    y:
+    subjects:
+    path_output: str
+    """
+    cv_scores = []
+    component_range = range(1, 101)  
+
+    group_kfold = GroupKFold(n_splits=5)
+
+    for n in tqdm(component_range):
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('pca', PCA(n_components=n)),
+            ('reg', LassoCV(cv=5))  # internal CV for Lasso 
+        ])
+        
+        scores = cross_val_score(
+            pipeline, X, y,
+            cv=group_kfold.split(X, y, groups=subjects),
+            scoring='r2'
+        )
+        cv_scores.append(scores.mean())
+
+    # Get best n_components
+    best_n = component_range[np.argmax(cv_scores)]
+    print(f"Best number of components: {best_n} (R² = {np.max(cv_scores):.4f})")
+
+    # Plot
+    plt.figure(figsize=(8, 5))
+    plt.plot(component_range, cv_scores, marker='o')
+    plt.axvline(best_n, color='r', linestyle='--', label=f'Best = {best_n}')
+    plt.xlabel("Number of PCA Components")
+    plt.ylabel("Cross-validated R²")
+    plt.title("Decoding Performance vs PCA Dimensionality")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+
+
+    # Plot
+    N_COMPONENTS = 25
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(component_range, cv_scores, marker='o')
+    plt.axvline(N_COMPONENTS, color='r', linestyle='--', label=f'Best = {25}')
+    plt.xlabel("Number of PCA Components")
+    plt.ylabel("Cross-validated R²")
+    plt.title("Decoding Performance vs PCA Dimensionality")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+
+    # PCA + scree plot on X components
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.pipeline import Pipeline
+
+    Pipeline = Pipeline([
+        ('scaler', StandardScaler()),
+        ('pca', PCA(n_components=None)) #takes len(X) components
+    ])
+    X_pca = Pipeline.fit_transform(X)
+    pca = Pipeline.named_steps['pca']
+    explained_variance = pca.explained_variance_ [0:65] #arbitrary/best in CV!!! 
+    explained_variance_ratio = pca.explained_variance_ratio_[0:65]
+
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(range(1, len(explained_variance) + 1), explained_variance, marker='o', linestyle='--')
+    plt.title('Scree Plot')
+    plt.axvline(N_COMPONENTS, color='r', linestyle='--', label=f'Best = {best_n}')
+    plt.xlabel('Principal Component')
+    plt.ylabel('Variance Explained')
+    plt.xticks(range(1, len(explained_variance) + 1))
+    plt.grid()
+    # plt.savefig('/home/dsutterlin/projects/pain_effort2025/scree_plot.png', dpi=300)
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(range(1, len(explained_variance_ratio) + 1), explained_variance_ratio, marker='o', linestyle='--')
+    plt.title('Scree Plot')
+    plt.xlabel('Principal Component')
+    plt.ylabel('Variance Explained')
+    plt.xticks(range(1, len(explained_variance_ratio) + 1))
+    plt.grid()
+
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    pca = PCA()
+    pca.fit(X_scaled)
+
+    explained_variance = pca.explained_variance_ratio_
+    cumulative_variance = np.cumsum(explained_variance)
+
+    # Approximate elbow using curvature
+    first_diff = np.diff(explained_variance)
+    second_diff = np.diff(first_diff)
+
+    elbow_idx = np.argmin(second_diff) + 2  # +2 because second_diff shifts index by 2
+
+    print(f"Estimated elbow at component {elbow_idx}")
+
+
+    explained_by_25 = np.sum(explained_variance[:25])
+    print(f"Total variance explained by 25 components: {explained_by_25:.2%}")
