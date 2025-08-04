@@ -157,8 +157,6 @@ if __name__ == "__main__":
         if list_contrasts["contrasts"] == "":
             raise ValueError(f"`contrasts` can not be an empty list.")
         file.close()
-
-    #fixed_effects(args.path_data, args.path_mask, args.path_output, '001', list_contrasts)
     
     # Run fixed effect analyses
     Parallel(n_jobs=3)(
