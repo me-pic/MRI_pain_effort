@@ -35,9 +35,13 @@ def plot_brain_maps(path_data, path_output, coords_to_plot, extension='svg'):
     filename = os.path.basename(path_data).split('.')[0]
 
     for axis, coord in coords_to_plot.items():
-        for c in coord:
+        for idx, c in enumerate(coord):
             fig, ax = plt.subplots(figsize=(1.5, 1.5))
-            disp = plotting.plot_stat_map(path_data, cmap=plotting.cm.cold_hot, colorbar=False,
+            if idx = 0:
+                plot_colorbar=True
+            else:
+                plot_colorbar=False
+            disp = plotting.plot_stat_map(path_data, cmap=plotting.cm.cold_hot, colorbar=plot_colorbar,
                             dim=-0.3,
                             black_bg=False,
                             display_mode=axis,
