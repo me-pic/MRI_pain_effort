@@ -16,7 +16,7 @@ from nilearn.glm.first_level import FirstLevelModel
 from mri_pain_effort.dataset.first_level_contrasts import make_localizer_contrasts
 
 
-def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_variance', 'effect_size']):
+def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_variance', 'effect_size'], events_desc="events"):
     """
     Compute First Level GLM to get activation maps
 
@@ -41,7 +41,7 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
         List of contrasts to save
     """
     # Get BIDS layout
-    layout = BIDSLayout(path_data, is_derivative=True)
+    layout = BIDSLayout(path_data, is_derivative=True, )
     # Get all the subject folders in path_data
     subjects = layout.get_subjects()
     
@@ -79,8 +79,12 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             print(f"\nRunning GLM on sub-{subject}, run-{run}")
             
             # Load events
-            event = layout.get(subject=subject, extension="tsv", suffix="events", run=run)
-            
+            if events_desc == 'events':
+                event = layout.get(subject=subject, extension="tsv", suffix="events", run=run)
+            else:
+                event = layout.get(subject=subject, extension="tsv",run=run, invalid_filters='allow')
+                event = [e for e in event if events_desc in e.filename]
+
             if len(event) == 0:
                 warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
                 continue
@@ -172,6 +176,12 @@ if __name__ == "__main__":
         default=None,
         help="To analyze data from a specific participant, this argument can be used to specify the subject id"
     )
+    parser.add_argument(
+        "--events",
+        type=str,
+        default="events",
+        help="Descriptor of the events files to use to compute the GLM"
+    )
     args = parser.parse_args()
 
     # Get subjects
@@ -194,6 +204,6 @@ if __name__ == "__main__":
     Parallel(n_jobs=3)(
         delayed(run_first_level_glm)(
             args.path_data, args.path_mask, args.path_output, sub, 
-            conf_var=conf_var["confounds"]
+            conf_var=conf_var["confounds"], events_desc=args.events
         ) for sub in subjects
     )

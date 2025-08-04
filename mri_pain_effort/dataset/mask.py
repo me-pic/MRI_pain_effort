@@ -55,8 +55,6 @@ def create_group_masks(path_data, path_output):
     nib.save(resampled_to_mask, os.path.join(path_output, 'resampled_whole-brain_group_mask.nii.gz'))
 
 
-
-
 def create_schaefer_masker(path_output, save_coords=False):
     """
     Create a mask with the regions specified in `ROI`
