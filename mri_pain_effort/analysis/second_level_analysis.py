@@ -14,7 +14,7 @@ from nilearn.glm import threshold_stats_img
 from nilearn.glm.second_level import SecondLevelModel
 
 
-def run_second_level_glm(path_data, path_mask, path_output, contrasts):
+def run_second_level_glm(path_data, path_mask, path_output, contrasts, subject_regressor=False):
     """
     Compute Second Level GLM
 
@@ -37,19 +37,19 @@ def run_second_level_glm(path_data, path_mask, path_output, contrasts):
     # Create output path if doesn't exit
     if path_output is None:
         path_output = path_data
-    Path(path_output).mkdir(parents=True, exist_ok=True)
-
-    # Instantiating empty lists
-    second_level_input, values = [], []
+    path_output = Path(path_output)
 
     # Iterating trough contrasts
     for contrast in contrasts:
         print(f"\nComputing fixed effect for contrast {contrast}")
+        # Instantiating empty lists
+        second_level_input, values = [], []
+
         for idx, cond in enumerate(contrasts[contrast]['conditions']):
             # Get conditions files
             tmp_conditions = layout.get(extension='nii.gz', desc=cond, invalid_filters='allow')
             # Filter to get the fixed effect output
-            tmp_conditions = [f.get_image() for f in tmp_conditions if 'stat-contrast' in f.filename]
+            tmp_conditions = [f.get_image() for f in tmp_conditions if 'stat-contrast' in f.filename and 'plus' not in f.filename]
             # Check the files collected
             print("collected files: ")
             pprint.pprint(tmp_conditions)
@@ -63,14 +63,21 @@ def run_second_level_glm(path_data, path_mask, path_output, contrasts):
             tmp_values = [contrasts[contrast]["values"][idx]] * len(tmp_conditions)
             values = [*values, *tmp_values]
 
-        # Create subject regressors
-        subject_effect = np.vstack([np.eye(len(subjects)) for _ in range(len(contrasts[contrast]))])
+        if subject_regressor:
+            # Create subject regressors
+            subject_effect = np.vstack([np.eye(len(subjects)) for _ in range(len(contrasts[contrast]))])
 
-        # Create the design matrix
-        design_matrix = pd.DataFrame(
-            np.hstack((np.array(values)[:, np.newaxis], subject_effect)),
-            columns=[contrast] + subjects
-        )
+            # Create the design matrix
+            design_matrix = pd.DataFrame(
+                np.hstack((np.array(values)[:, np.newaxis], subject_effect)),
+                columns=[contrast] + subjects
+            )
+        else:
+            design_matrix = pd.DataFrame(
+                np.array(values)[:, np.newaxis],
+                columns=[contrast]
+            )
+
         # Check the shape of the design matrix
         print(f"Design matrix shape: {design_matrix.shape}")
 
@@ -89,9 +96,11 @@ def run_second_level_glm(path_data, path_mask, path_output, contrasts):
         )
         # Saving the output
         print("... Saving outputs")
-        design_matrix.to_csv(os.path.join(path_output, 'design_matrix.tsv'), sep='\t', index=False)
+        Path(path_output / contrast).mkdir(parents=True, exist_ok=True)
 
-        nib.save(z_map, os.path.join(path_output, f"z_map_{contrast}.nii.gz"))
+        design_matrix.to_csv(os.path.join(path_output, contrast, f'design_matrix_{contrast}.tsv'), sep='\t', index=False)
+
+        nib.save(z_map, os.path.join(path_output, contrast, f"z_map_{contrast}.nii.gz"))
 
         # Apply the FDR correction on the map
         for threshold in [0.01, 0.05]:
@@ -99,7 +108,7 @@ def run_second_level_glm(path_data, path_mask, path_output, contrasts):
                 z_map, alpha=threshold, height_control="fdr"
             )
             # Save the corrected map
-            nib.save(corrected_z_map, os.path.join(path_output, f"z_map_thresholded_q{str(threshold).split('.')[1]}_{contrast}.nii.gz"))        
+            nib.save(corrected_z_map, os.path.join(path_output, contrast, f"z_map_thresholded_q{str(threshold).split('.')[1]}_{contrast}.nii.gz"))        
 
 
 if __name__ == "__main__":
@@ -108,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "path_data",
         type=str,
-        help="Directory containing the output of the first level analysis"
+        help="Directory containing the output of the fixed effect analysis"
     )
     parser.add_argument(
         "path_mask",
@@ -120,6 +129,12 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="Directory to save the fixed effect output. If None, data will be saved in `path_data`"
+    )
+    parser.add_argument(
+        "--subject_regressor",
+        action='store_true',
+        help="If flag specified, regressors will be added for subject"
+
     )
     args = parser.parse_args()
 
@@ -133,4 +148,4 @@ if __name__ == "__main__":
         file.close()
 
     # Run second level analyses
-    run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts)
+    run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts, args.subject_regressor)
