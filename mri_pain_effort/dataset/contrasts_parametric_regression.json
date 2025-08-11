@@ -1,20 +1,72 @@
 {
-    "contractionall": {
+    "contractionthermal_tbyt_csr": {
         "conditions": [
-            "contractionwarm5",
-            "contractionwarm30",
-            "contractionpain5",
-            "contractionpain30",
-            "contractionsolo5",
-            "contractionsolo30"
+            "ContractionWarm_5",
+            "ContractionWarm_30",
+            "ContractionPain_5",
+            "ContractionPain_30"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "conditions",
+            "subjects",
+            "runs"
         ]
     },
-    "contractionthermal": {
+    "contractionall_tbyt_csr": {
         "conditions": [
-            "contractionwarm5",
-            "contractionwarm30",
-            "contractionpain5",
-            "contractionpain30"
+            "ContractionWarm_5",
+            "ContractionWarm_30",
+            "ContractionPain_5",
+            "ContractionPain_30",
+            "ContractionSolo_5",
+            "ContractionSolo_30"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "conditions",
+            "subjects",
+            "runs"
+        ]
+    },
+    "contractionthermal30_sr": {
+        "conditions": [
+            "contraction30painminwarm"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "subjects",
+            "runs"
+        ]
+    },
+    "contractionthermal5_sr": {
+        "conditions": [
+            "contraction5painminwarm"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "subjects",
+            "runs"
+        ]
+    },
+    "contractionthermal_sr": {
+        "conditions": [
+            "contractionpainminwarm"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "subjects",
+            "runs"
+        ]
+    },
+    "contraction_sr": {
+        "conditions": [
+            "contraction30min5"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "subjects",
+            "runs"
         ]
     }
 }

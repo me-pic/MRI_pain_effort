@@ -116,14 +116,6 @@ def make_localizer_contrasts(design_matrix, confounds):
         contrasts["contraction30thermal"]-contrasts["contraction5thermal"] 
     )
 
-    contrasts = {
-        "contractionpainminwarm": contrasts["contractionpainminwarm"],
-        "contraction30painminwarm": contrasts["contraction30painminwarm"],
-        "contraction5painminwarm": contrasts["contraction5painminwarm"],
-        "contraction30min5": contrasts["contraction30min5"],
-        "contraction30min5thermal": contrasts["contraction30min5thermal"]
-    }
-
     return contrasts
 
 def _sum_contrasts(contrasts, conditions, keyword):
