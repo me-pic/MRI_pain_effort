@@ -6,7 +6,17 @@
         ],
         "values": [
             1,
-            -1 
+            -1
+        ]
+    },
+    "contractionsolo30min5": {
+        "conditions": [
+            "contractionsolo30",
+            "contractionsolo5"
+        ],
+        "values": [
+            1,
+            -1
         ]
     }
 }
