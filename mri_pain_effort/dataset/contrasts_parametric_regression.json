@@ -1,4 +1,48 @@
 {
+    "contractionthermal30_sr": {
+        "conditions": [
+            "contraction30painminwarm"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "subjects",
+            "runs"
+        ],
+        "contrasts": "ContractionPain_30-ContractionWarm_30"
+    },
+    "contractionthermal5_sr": {
+        "conditions": [
+            "contraction5painminwarm"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "subjects",
+            "runs"
+        ],
+        "contrasts": "ContractionPain_5-ContractionWarm_5"
+    },
+    "contractionthermal_sr": {
+        "conditions": [
+            "contractionpainminwarm"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "subjects",
+            "runs"
+        ],
+        "contrasts": "ContractionPain-ContractionWarm"
+    },
+    "contraction_sr": {
+        "conditions": [
+            "contraction30min5"
+        ],
+        "param_regressor": "rating_effort",
+        "regressor": [
+            "subjects",
+            "runs"
+        ],
+        "contrasts": "Contraction.*_30-Contraction.*_5"
+    },
     "contractionthermal_tbyt_csr": {
         "conditions": [
             "ContractionWarm_5",
@@ -25,46 +69,6 @@
         "param_regressor": "rating_effort",
         "regressor": [
             "conditions",
-            "subjects",
-            "runs"
-        ]
-    },
-    "contractionthermal30_sr": {
-        "conditions": [
-            "contraction30painminwarm"
-        ],
-        "param_regressor": "rating_effort",
-        "regressor": [
-            "subjects",
-            "runs"
-        ]
-    },
-    "contractionthermal5_sr": {
-        "conditions": [
-            "contraction5painminwarm"
-        ],
-        "param_regressor": "rating_effort",
-        "regressor": [
-            "subjects",
-            "runs"
-        ]
-    },
-    "contractionthermal_sr": {
-        "conditions": [
-            "contractionpainminwarm"
-        ],
-        "param_regressor": "rating_effort",
-        "regressor": [
-            "subjects",
-            "runs"
-        ]
-    },
-    "contraction_sr": {
-        "conditions": [
-            "contraction30min5"
-        ],
-        "param_regressor": "rating_effort",
-        "regressor": [
             "subjects",
             "runs"
         ]

@@ -64,7 +64,7 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, co
             # Get conditions files
             tmp_conditions = layout.get(extension='nii.gz', invalid_filters='allow')
             # Filter to get the fixed effect output
-            tmp_conditions = [f for f in tmp_conditions if 'stat-effectsize' in f.filename and cond in f.filename and 'plus' not in f.filename]
+            tmp_conditions = [f for f in tmp_conditions if 'stat-effectsize' in f.filename and cond in f.filename and 'plus' not in f.filename and 'thermal' not in f.filename]
             filenames = [*filenames, *tmp_conditions]
 
             # Check the files collected
@@ -86,16 +86,17 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, co
                 var = var+runs
 
             regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=[contrasts[contrast]['param_regressor']]+var)
-            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast]['param_regressor'], cond, contrasts[contrast]["regressor"], run_renaming=run_renaming, tbyt=tbyt)
+            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, run_renaming=run_renaming, tbyt=tbyt)
             
             # Get the images
             second_level_input = [*second_level_input, *[f.get_image() for f in tmp_data]]
             # Concatenate the regressors for `cond` in the design_matrix
             design_matrix = pd.concat([design_matrix, tmp_design_matrix], ignore_index=True)
-
+        
         # Defining the SecondLevelModel
         second_level_model = SecondLevelModel(mask_img=path_mask)
         # Fitting the SecondLevelModel
+        design_matrix = design_matrix.fillna(0).astype(int)
         second_level_model = second_level_model.fit(
             second_level_input, design_matrix=design_matrix
         )
@@ -120,8 +121,9 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, co
             nib.save(corrected_z_map, os.path.join(path_output, contrast, f"z_map_thresholded_q{str(threshold).split('.')[1]}_{contrast}.nii.gz"))
 
 
-def _build_design_matrix(data, layout_events, regressors, param_regressor, cond, regressors_var, run_renaming=None, tbyt=False):
+def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_renaming=None, tbyt=False):
     """
+     regressors, contrasts[contrast]['param_regressor'], cond, contrasts[contrast]["regressor"], 
     Build design matrix to use for the parametric regression
 
     Parameters
@@ -132,8 +134,8 @@ def _build_design_matrix(data, layout_events, regressors, param_regressor, cond,
         BIDSLayout to get the events files
     regressors: DataFrame
         Empty DataFrame containing the name of the columns
-    param_regressor: str
-        Name of the parametric regressor to include. The name should match the one in the *_events.tsv files
+    contrast: dict
+        Dictionary containing the parametric regression parameters
     cond: str
         Experimental condition
 
@@ -150,6 +152,7 @@ def _build_design_matrix(data, layout_events, regressors, param_regressor, cond,
         entities = d.get_entities()
         subject = entities['subject']
         run = str(entities['run'])
+        contained_na=False
 
         # Retrieve events file associated to that specific subject/run
         event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
@@ -167,27 +170,52 @@ def _build_design_matrix(data, layout_events, regressors, param_regressor, cond,
         
         # Get parametric regressor values
         if tbyt:
-            value = int(event[event['trial_type'].str.contains(f'{entities["desc"]}_{cond}', case=False, na=False)][param_regressor])
+            value = int(event[event['trial_type'].str.contains(f'{entities["desc"]}_{cond}', case=False, na=False)][contrast['param_regressor']])
             if math.isnan(value):
                 print(f"{d.filename} contains NaN")
                 print(f"Deleting {data[idx]}")
                 del data_tmp[idx]
-            else:
-                if "runs" in regressors_var:
-                    if "subjects" in regressors_var:
-                        regressors.loc[regressors.index[idx], subject] = 1
-                    if subject in run_renaming.keys():
-                        run = run_renaming[subject][run]
-                    regressors.loc[regressors.index[idx], f'run-{run}'] = 1
-                    if "conditions" in regressors_var:
-                        regressors.loc[regressors.index[idx], cond] = 1
+                contained_na=True
+        else:
+            value = _compute_behavioral_contrasts(event, contrast['contrasts'])
 
-                regressors.loc[regressors.index[idx], param_regressor] = value
-        else:    
-            event['trial_type'] = event['trial_type'].str.lower().str.replace('_', '')
-            regressors.loc[regressors.index[idx], param_regressor] = event[event['trial_type'].str.contains(cond, case=False, na=False)][param_regressor].mean()
+        if not contained_na:
+            if "runs" in contrast["regressor"]:
+                if subject in run_renaming.keys():
+                    run = run_renaming[subject][run]
+                regressors.loc[regressors.index[idx], f'run-{run}'] = 1
+
+            if "subjects" in contrast["regressor"]:
+                regressors.loc[regressors.index[idx], subject] = 1
+                
+            if "conditions" in contrast["regressor"]:
+                regressors.loc[regressors.index[idx], cond] = 1
+
+            regressors.loc[regressors.index[idx], contrast['param_regressor']] = value
             
-    return data_tmp.fillna(0).astype(int), regressors
+    return data_tmp, regressors
+
+
+def _compute_behavioral_contrasts(events, contrast):
+    """
+    Parameters
+    ----------
+    events: DataFrame
+        Loaded events file
+    contrast: str
+        Contrast to compute
+    """
+    import operator
+    ops = { "+": operator.add, "-": operator.sub }
+
+    for k in ops.keys():
+        if k in contrast:
+            conditions = contrast.split(k)
+            cond1, cond2 = conditions[0], conditions[1]
+            value1 = sum(events[events['trial_type'].str.contains(cond1, regex=True)]['rating_effort'])
+            value2 = sum(events[events['trial_type'].str.contains(cond2, regex=True)]['rating_effort'])
+
+    return ops[k](value1, value2)
 
 
 if __name__ == "__main__":
