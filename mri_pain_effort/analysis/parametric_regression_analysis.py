@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import pprint
 import warnings
 
@@ -15,7 +16,7 @@ from nilearn.glm import threshold_stats_img
 from nilearn.glm.second_level import SecondLevelModel
 
 
-def run_parametric_regression(path_data, path_events, path_mask, path_output, contrasts, param_regressor, run_renaming=None):
+def run_parametric_regression(path_data, path_events, path_mask, path_output, contrasts, run_renaming=None):
     """
     Compute parametric regression
 
@@ -65,8 +66,6 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, co
             # Filter to get the fixed effect output
             tmp_conditions = [f for f in tmp_conditions if 'stat-effectsize' in f.filename and cond in f.filename and 'plus' not in f.filename]
             filenames = [*filenames, *tmp_conditions]
-            tmp_conditions_images = [f.get_image() for f in tmp_conditions]
-            second_level_input = [*second_level_input, *tmp_conditions_images]
 
             # Check the files collected
             print("collected files: ")
@@ -78,8 +77,19 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, co
             else:
                 tbyt=False
             # Build design matrix
-            regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=[param_regressor]+subjects+runs)
-            tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, param_regressor, cond, run_renaming=run_renaming, tbyt=tbyt)
+            var = []
+            if "conditions" in contrasts[contrast]["regressor"]:
+                var = var+contrasts[contrast]['conditions']
+            elif "subjects" in contrasts[contrast]["regressor"]:
+                var = var+subjects
+            elif "runs" in contrasts[contrast]["regressor"]:
+                var = var+runs
+
+            regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=[contrasts[contrast]['param_regressor']]+var)
+            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast]['param_regressor'], cond, contrasts[contrast]["regressor"], run_renaming=run_renaming, tbyt=tbyt)
+            
+            # Get the images
+            second_level_input = [*second_level_input, *[f.get_image() for f in tmp_data]]
             # Concatenate the regressors for `cond` in the design_matrix
             design_matrix = pd.concat([design_matrix, tmp_design_matrix], ignore_index=True)
 
@@ -90,7 +100,7 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, co
             second_level_input, design_matrix=design_matrix
         )
         # Get z maps
-        z_map = second_level_model.compute_contrast(param_regressor, output_type='z_score')
+        z_map = second_level_model.compute_contrast(contrasts[contrast]['param_regressor'], output_type='z_score')
 
         # Saving the output
         Path(path_output / contrast).mkdir(parents=True, exist_ok=True)
@@ -110,7 +120,7 @@ def run_parametric_regression(path_data, path_events, path_mask, path_output, co
             nib.save(corrected_z_map, os.path.join(path_output, contrast, f"z_map_thresholded_q{str(threshold).split('.')[1]}_{contrast}.nii.gz"))
 
 
-def _build_design_matrix(data, layout_events, regressors, param_regressor, cond, run_renaming=None, tbyt=False):
+def _build_design_matrix(data, layout_events, regressors, param_regressor, cond, regressors_var, run_renaming=None, tbyt=False):
     """
     Build design matrix to use for the parametric regression
 
@@ -132,6 +142,7 @@ def _build_design_matrix(data, layout_events, regressors, param_regressor, cond,
     regressors: DataFrame
         DataFrame containing the design matrix to use for the parametric regression
     """
+    data_tmp = data.copy()
     for idx, d in enumerate(data):
         print(f"\nAdding {d.filename} to design_matrix")
 
@@ -139,9 +150,6 @@ def _build_design_matrix(data, layout_events, regressors, param_regressor, cond,
         entities = d.get_entities()
         subject = entities['subject']
         run = str(entities['run'])
-
-        # Add subject the DataFrame
-        regressors.loc[regressors.index[idx], subject] = 1
 
         # Retrieve events file associated to that specific subject/run
         event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
@@ -156,21 +164,30 @@ def _build_design_matrix(data, layout_events, regressors, param_regressor, cond,
         print(f"... Loading events file: {event[0].filename}")
         # Get events
         event = event[0].get_df()
-
-        # Add run in the DataFrame
-        if subject in run_renaming.keys():
-            run = run_renaming[subject][run]
-
-        regressors.loc[regressors.index[idx], f'run-{run}'] = 1
-
+        
         # Get parametric regressor values
         if tbyt:
-            regressors.loc[regressors.index[idx], param_regressor] = int(event[event['trial_type'].str.contains(f'{entities["desc"]}_{cond}', case=False, na=False)][param_regressor])
+            value = int(event[event['trial_type'].str.contains(f'{entities["desc"]}_{cond}', case=False, na=False)][param_regressor])
+            if math.isnan(value):
+                print(f"{d.filename} contains NaN")
+                print(f"Deleting {data[idx]}")
+                del data_tmp[idx]
+            else:
+                if "runs" in regressors_var:
+                    if "subjects" in regressors_var:
+                        regressors.loc[regressors.index[idx], subject] = 1
+                    if subject in run_renaming.keys():
+                        run = run_renaming[subject][run]
+                    regressors.loc[regressors.index[idx], f'run-{run}'] = 1
+                    if "conditions" in regressors_var:
+                        regressors.loc[regressors.index[idx], cond] = 1
+
+                regressors.loc[regressors.index[idx], param_regressor] = value
         else:    
             event['trial_type'] = event['trial_type'].str.lower().str.replace('_', '')
             regressors.loc[regressors.index[idx], param_regressor] = event[event['trial_type'].str.contains(cond, case=False, na=False)][param_regressor].mean()
             
-    return regressors
+    return data_tmp.fillna(0).astype(int), regressors
 
 
 if __name__ == "__main__":
@@ -191,11 +208,6 @@ if __name__ == "__main__":
         type=str,
         help="Path to the mask used to extract signal"
     ) 
-    parser.add_argument(
-        "param_regressor",
-        type=str,
-        help="Name of the columns in the events file to use as the parametric regressor"
-    )
     parser.add_argument(
         "--path_output",
         type=str,
@@ -221,4 +233,4 @@ if __name__ == "__main__":
         file.close()
 
     # Run second level analyses
-    run_parametric_regression(args.path_data, args.path_events, args.path_mask, args.path_output, list_contrasts, args.param_regressor, run_renaming)
+    run_parametric_regression(args.path_data, args.path_events, args.path_mask, args.path_output, list_contrasts, run_renaming)
