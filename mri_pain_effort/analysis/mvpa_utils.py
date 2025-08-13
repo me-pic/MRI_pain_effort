@@ -3,13 +3,17 @@
 # Adapted : GroupKFold <= GroupShuffleSplit
 
 import os
+import pprint
 
 import numpy as np
 import pandas as pd
 
 from tqdm import tqdm
-from scipy.stats import pearsonr, zscore, norm
+from pathlib import Path
+from itertools import combinations
 from joblib import Parallel, delayed
+from statsmodels.stats.multitest import multipletests
+from scipy.stats import pearsonr, zscore, norm, wilcoxon
 
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
@@ -19,7 +23,6 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit, permutation_test_score
 
 
-
 def split_data(X, Y, groups, n_splits,test_size=None, random_seed=42):
 
     if test_size is None:
@@ -27,7 +30,7 @@ def split_data(X, Y, groups, n_splits,test_size=None, random_seed=42):
     else:
         print("Using GroupShuffleSplit")
         gkf = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_seed)
-    
+
     X_train, X_test, y_train, y_test = [], [], [], []
     for train_idx, test_idx in gkf.split(X, Y, groups):
         X_train.append(X[train_idx])
@@ -479,3 +482,74 @@ def check_pca_components(X, y, subjects, path_output=None):
 
     explained_by_25 = np.sum(explained_variance[:25])
     print(f"Total variance explained by 25 components: {explained_by_25:.2%}")
+
+
+def compare_models_performance(path_metrics, path_output=None, metric='r2'):
+    """
+    Compute the wilcoxon t-test between all models' metrics and apply a bonferroni correction
+    
+    Parameters
+    ----------
+    path_metrics: str
+        Directory containing the DataFrame with the performance metrics for the different models
+    path_ouput: path_output
+        Directory to save the output. If `None` output will be saved in `path_metrics`
+    metric: str
+        Metric to use to compare the models' performance ['r2', 'pearson_r', 'mae', 'mse', 'rmse'].
+    """
+    # Create output path if doesn't exit
+    if path_output is None:
+        path_output = path_metrics
+    path_output = Path(path_output)
+
+    # Retrieve metrics
+    df_metrics = [f for f in os.listdir(path_metrics) if 'df_metrics' in f]
+    # Make sure the metrics were retrieved
+    if len(df_metrics) == 0:
+        raise ValueError('No files containing `df_metrics` found in specified `path_metrics`')
+    # Load data
+    scores = {}
+    for df in df_metrics:
+        model_name = df.split('_')[2].split('.')[0]
+        df_tmp = pd.read_csv(os.path.join(path_output, df))
+        scores[model_name] = df_tmp[metric]
+
+    pvals = []
+    model_combin = list(combinations(scores.keys(), 2))
+
+    # Iterate through the combinaisons to test the difference between scores
+    for model1, model2 in model_combin:
+        scores1 = scores[model1]
+        scores2 = scores[model2]
+
+        if len(scores1) != len(scores2):
+            raise ValueError('Different number of values between model1 and model2')
+
+        stat, pval = wilcoxon(scores1, scores2)
+
+        pvals.append(
+            {
+                'Model 1': model1,
+                'Model 2': model2,
+                'pval uncorr': pval
+            }
+        )
+
+    # Perform the bonferroni correction on the pvalues obtained
+    pvals_unc = [p['pval uncorr'] for p in pvals]
+    _, pvals_corr, _, _ = multipletests(pvals_unc, method='bonferroni')
+                        
+    for idx, combin in enumerate(pvals):
+        combin['pval corrected'] = pvals_corr[idx]
+        combin['Significant (a=0.05)'] = pvals_corr[idx] < 0.05
+
+    # Save the results as a DataFrame
+    df_pvals = pd.DataFrame(pvals)
+
+    pprint.pprint(df_pvals)
+
+    df_pvals.to_csv(
+        os.path.join(path_output, 'comparison_between_models.tsv'),
+        index=False,
+        sep='\t'
+    )

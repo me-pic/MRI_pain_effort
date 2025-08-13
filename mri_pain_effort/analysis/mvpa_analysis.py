@@ -24,7 +24,7 @@ reload(utils)
 PARAMS = {
     'random_seed': 40,
     'n_splits': 10,
-    'n_components': 25
+    'n_components': 25,
     'test_size': 0.2,
     'standardize': True,
     'n_perm': 5000,
@@ -33,7 +33,7 @@ PARAMS = {
 }
 
 
-def run_mvpa(path_data, path_events, path_mask, path_ouput, contrasts, y_label):
+def run_mvpa(path_data, path_events, path_mask, path_output, contrasts):
     """
     Compute MVPA
 
@@ -55,22 +55,75 @@ def run_mvpa(path_data, path_events, path_mask, path_ouput, contrasts, y_label):
     layout_events = BIDSLayout(path_events, is_derivative=True)
     # Get number of subjects
     subjects = layout.get_subjects()
+    # Get mask name
+    mask_name = os.path.basename(path_mask).split('-')[-1].split('.')[0]
 
-    # Create output path if doesn't exit
-    if path_output is None:
-        path_output = path_data
-    Path(path_output).mkdir(parents=True, exist_ok=True)
+    for contrast in contrasts:
+        # Create output path if doesn't exit
+        if path_output is None:
+            path_output = Path(path_data)
+        else:
+            path_output = Path(path_output) / contrast
+        path_output.mkdir(parents=True, exist_ok=True)
 
-    # Get contrast files
-    list_maps = layout.get(extension='nii.gz', desc=contrasts, invalid_filters='allow')
-    # Filter to get the activation maps
-    list_maps = [f for f in list_maps if 'stat-effectsize' in f.filename]
+        # Get contrast files
+        if 'tbyt' in contrast:
+            list_maps = layout.get(extension='nii.gz', invalid_filters='allow')
+            maps, y, conditions, groups = [], [], [], []
+            for cond in contrasts[contrast]['conditions']:
+                tmp_maps = [f for f in list_maps if cond in f.filename and 'stat-effectsize' in f.filename]
+                tmp_maps, tmp_y, tmp_conditions, tmp_groups = _get_behavioral_scores(tmp_maps, layout_events, tbyt=True, label=contrasts[contrast]['label'], cond=cond)
+                maps = [*maps, *tmp_maps]
+                y = [*y, *tmp_y]
+                conditions = [*conditions, *tmp_conditions]
+                groups = [*groups, *tmp_groups]
+        else:
+            list_maps = layout.get(extension='nii.gz', desc=contrasts[contrast]['conditions'], invalid_filters='allow')
+            # Filter to get the activation maps
+            list_maps = [f for f in list_maps if 'stat-effectsize' in f.filename]
+            maps, y, conditions, groups = _get_behavioral_scores(list_maps, layout_events, tbyt=False, label=contrasts[contrast]['label'])
+
+        # Prepare features for regression
+        if os.path.exists(os.path.join(path_output, f'X_transformed_{mask_name}.npz')):
+            X = np.load(os.path.join(path_output, f'X_transformed_{mask_name}.npz'))['X']
+            print("Loading X, with shape:", X.shape)
+        else:
+            masker = NiftiMasker(mask_img=path_mask, standardize=False)
+            X = masker.fit_transform(maps)
+            print("X shape:", X.shape)
+            #save extracted features
+            np.savez(os.path.join(path_output, f'X_transformed_{mask_name}.npz'), X=X, masker=masker)
+
+        # Run the train-test model using GroupKFold
+        print(f"Running model keeping {PARAMS['n_components']} components")
+
+        X_train, y_train, X_test, y_test, y_pred, models, model_voxel, df_metrics = utils.train_test_model(
+            X, np.array(y), np.array(groups), n_splits=PARAMS['n_splits'],test_size=PARAMS['test_size'], n_components=PARAMS['n_components'],
+            random_seed=PARAMS['random_seed'], print_verbose=True, standard=PARAMS['standardize']
+        )
+        print("Cross-validation metrics:")
+        print(df_metrics)
+
+        # Saving model output
+        print("Saving ouputs")
+        # Save DataFrame containing performances
+        df_metrics.to_csv(os.path.join(path_output, f'df_metrics_{mask_name}.csv'), index=False)
+        # Save y_test and y_pred
+        with open(os.path.join(path_output, f"y_test_{mask_name}.pickle"), 'wb') as fp:
+            pickle.dump(y_test, fp)
+            fp.close()
+        with open(os.path.join(path_output, f"y_pred_{mask_name}.pickle"), 'wb') as fp:
+            pickle.dump(y_pred, fp)
+            fp.close()
+
+
+def _get_behavioral_scores(list_maps, layout_events, tbyt, label, cond=None):
+    # Retrieve MVPA inputs
+    maps, y, conditions, groups = [], [], [], []
+    
     # Check the files collected
     print("collected files: ")
     pprint.pprint(list_maps)
-
-    # Retrieve MVPA inputs
-    maps, y, conditions, groups = [], [], [], []
 
     for i, act_map in enumerate(list_maps):
         # Get entities for `act_map`
@@ -80,68 +133,40 @@ def run_mvpa(path_data, path_events, path_mask, path_ouput, contrasts, y_label):
         desc = entities['desc']
 
         # Retrieve events file
-        events = layout_events.get(subject=sub, run=run, extension='tsv', suffix='events')
+        event = layout_events.get(subject=sub, run=run, extension='tsv', suffix='events')
 
         if len(event) == 0:
             warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
             continue
         if len(event) > 1:
             raise ValueError(f"Multiple events files found for subject sub-{subject}, run {run}...")
-         print(f"... Loading events file: {event[0].filename}")
+        print(f"... Loading events file: {event[0].filename}")
         # Get events
         event = event[0].get_df()
 
         # Retrieve ratings
-        # Format `trial_type` to match values following `desc`` entity in `act_map.filename`
-        event['trial_type'] = event['trial_type'].str.lower().str.replace('_', '')
+        if tbyt:
+            y.append(event[event['trial_type'].str.contains(f'{desc}_{cond}', na=False)][label].iloc[0])
+            # Add info to lists
+            if '5' in entities['suffix']:
+                conditions.append(-1)
+            elif '30' in entities['suffix']:
+                conditions.append(1)
+        else:
+            # Format `trial_type` to match values following `desc`` entity in `act_map.filename`
+            event['trial_type'] = event['trial_type'].str.lower().str.replace('_', '')
 
-        # Compute mean ratings
-        y.append(event[event['trial_type'].str.contains(desc, na=False)][y_label].mean())
-
-        # Add info to lists
-        if '5' in desc:
-            conditions.append(-1)
-        elif '30' in desc:
-            conditions.append(1)
+            y.append(event[event['trial_type'].str.contains(desc, na=False)][label].sum())
+            # Add info to lists
+            if '5' in desc:
+                conditions.append(-1)
+            elif '30' in desc:
+                conditions.append(1)
 
         maps.append(act_map)
         groups.append(sub)
-
-        
-    # Prepare features for regression
-    if os.path.exists(os.path.join(path_ouput, 'X_transformed.npz')):
-        X = np.load(os.path.join(path_ouput, 'X_transformed.npz'))['X']
-        print("Loading X, with shape:", X.shape)
-    else:
-        masker = NiftiMasker(mask_img=path_mask, standardize=False)
-        X = masker.fit_transform(maps)
-        print("X shape:", X.shape)
-        #save extracted features
-        np.savez(os.path.join(path_ouput, 'X_transformed.npz'), X=X, masker=masker)
-
-
-    # Run the train-test model using GroupKFold
-    print(f"Running model keeping {PARAMS['n_components']} components")
-
-    X_train, y_train, X_test, y_test, y_pred, models, model_voxel, df_metrics = utils.train_test_model(
-        X, y, groups, n_splits=PARAMS['n_splits'],test_size=PARAMS['test_size'], n_components=PARAMS['n_components'],
-        random_seed=PARAMS['random_seed'], print_verbose=True, standard=PARAMS['standardize']
-    )
-
-    print("Cross-validation metrics:")
-    print(df_metrics)
-
-    # Saving model output
-    print("Saving ouputs")
-    # Save DataFrame containing performances
-    df_metrics.to_csv(os.path.join(path_output, 'df_metrics.csv'), index=False)
-    # Save y_test and y_pred
-    with open(os.path.join(path_output, f"y_test_{mask_name}.pickle"), 'wb') as fp:
-        pickle.dump(y_test, fp)
-        fp.close()
-    with open(os.path.join(path_output, f"y_pred_{mask_name}.pickle"), 'wb') as fp:
-        pickle.dump(y_pred, fp)
-        fp.close()
+    
+    return maps, y, conditions, groups
 
 
 def run_permutation(path_ouput, mask_name):
@@ -228,6 +253,11 @@ if __name__ == '__main__':
         help="Directory containg the data to use as input for the MVPA"
     )
     parser.add_argument(
+        "path_events",
+        type=str,
+        help="Directory containing the events files"
+    )
+    parser.add_argument(
         "path_mask",
         type=str,
         help="Path to the mask used to extract signal"
@@ -249,7 +279,7 @@ if __name__ == '__main__':
             raise ValueError(f"`list_contrasts` can not be an empty dictionnary.")
         file.close()
 
-    run_mvpa(args.path_data, args.path_mask, args.path_output, list_contrasts)
+    run_mvpa(args.path_data, args.path_events, args.path_mask, args.path_output, list_contrasts)
 
 
 
