@@ -1,8 +1,20 @@
 {
-    "contrasts" : [
-        "contractionpain5", 
-        "contractionpain30", 
-        "contractionwarm5", 
-        "contractionwarm30"
-    ]
+    "contractionthermal": {
+        "conditions": [
+            "ContractionPain_5",
+            "ContractionPain_30",
+            "ContractionWarm_5",
+            "ContractionWarm_30"
+        ],
+        "label": "rating_effort"
+    },
+    "contractionthermal_tbyt": {
+        "conditions": [
+            "ContractionPain_5",
+            "ContractionPain_30",
+            "ContractionWarm_5",
+            "ContractionWarm_30"
+        ],
+        "label": "rating_effort"
+    }
 }

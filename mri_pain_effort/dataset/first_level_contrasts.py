@@ -53,67 +53,71 @@ def make_localizer_contrasts(design_matrix, confounds):
     contrasts['contractionsolo30'] = _sum_contrasts(contrasts, conditions, 'ContractionSolo_30')
 
     # one contrast adding all conditions involving thermal stimulation
-    contrasts["pain"] = (
-        contrasts["pain5"]+ contrasts["pain30"])
-    contrasts["warm"] = (
-        contrasts["warm5"]+contrasts["warm30"])
-    contrasts["thermalstimulation"] = (
-        contrasts["pain"]
-        + contrasts["warm"]
+    contrasts['pain'] = (
+        contrasts['pain5']+ contrasts['pain30'])
+    contrasts['warm'] = (
+        contrasts['warm5']+contrasts['warm30'])
+    contrasts['thermalstimulation'] = (
+        contrasts['pain']
+        + contrasts['warm']
     )
 
     # one contrast adding all conditions involving contraction at 5%
-    contrasts["contraction5"] = (
-        contrasts["contractionwarm5"]+contrasts['contractionpain5'] + contrasts['contractionsolo5'])
+    contrasts['contraction5'] = (
+        contrasts['contractionwarm5']+contrasts['contractionpain5'] + contrasts['contractionsolo5'])
     
    # one contrast adding all conditions involving contraction at 5% during thermal stimulation
-    contrasts["contraction5thermal"] = (
-        contrasts["contractionwarm5"]+contrasts['contractionpain5'])
+    contrasts['contraction5thermal'] = (
+        contrasts['contractionwarm5']+contrasts['contractionpain5'])
     
     # one contrast adding all conditions involving contraction at 30%
-    contrasts["contraction30"] = (
+    contrasts['contraction30'] = (
         contrasts['contractionwarm30']+ contrasts['contractionpain30'] +contrasts['contractionsolo30']
     )
-    contrasts["contraction5plus30"] = (
+    contrasts['contraction5plus30'] = (
         contrasts['contraction5']+ contrasts['contraction30']
     )
 
     # one contrast adding all conditions involving contraction at 30% during thermal stimulation
-    contrasts["contraction30thermal"] = (
+    contrasts['contraction30thermal'] = (
         contrasts['contractionwarm30']+ contrasts['contractionpain30']
     )
     
     # one contrast adding all conditions involving contraction during warm
-    contrasts["contractionwarm"] = (
+    contrasts['contractionwarm'] = (
         contrasts['contractionwarm5']+contrasts['contractionwarm30']
     )
 
     # one contrast adding all conditions involving contraction during pain
-    contrasts["contractionpain"] = (
+    contrasts['contractionpain'] = (
         contrasts['contractionpain5']+contrasts['contractionpain30']
     )
-    contrasts["contractionsolo5plus30"] = (
+    contrasts['contractionsolo5plus30'] = (
         contrasts['contractionsolo5']+contrasts['contractionsolo30']
     )
-    contrasts["contractionthermal5plus30"] = (
+    contrasts['contractionthermal5plus30'] = (
         contrasts['contractionwarm']+contrasts['contractionpain']
     )
 
     # Add more contrasts
-    contrasts["contractionpainminwarm"] = (
-        contrasts['contractionpain']-contrasts["contractionwarm"]
+    contrasts['contractionpainminwarm'] = (
+        contrasts['contractionpain']-contrasts['contractionwarm']
     )
-    contrasts["contraction30painminwarm"] = (
+    contrasts['contraction30painminwarm'] = (
         contrasts['contractionpain30']-contrasts['contractionwarm30']
     )
-    contrasts["contraction5painminwarm"] = (
+    contrasts['contraction5painminwarm'] = (
         contrasts['contractionpain5']-contrasts['contractionwarm5']
     )
-    contrasts["contraction30min5"] = (
-        contrasts["contraction30"]-contrasts["contraction5"] 
+    contrasts['contraction30min5'] = (
+        contrasts['contraction30']-contrasts['contraction5'] 
     )
-    contrasts["contraction30min5thermal"] = (
-        contrasts["contraction30thermal"]-contrasts["contraction5thermal"] 
+    contrasts['contraction30min5thermal'] = (
+        contrasts['contraction30thermal']-contrasts['contraction5thermal'] 
+    )
+    # Add interaction
+    contrasts['contractionxthermal'] = (
+        contrasts['contractionpain30']-contrasts['contractionwarm30']-contrasts['contractionpain5']+contrasts['contractionwarm5']
     )
 
     return contrasts

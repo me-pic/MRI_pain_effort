@@ -18,5 +18,29 @@
             1,
             -1
         ]
+    },
+    "contraction30min5thermal": {
+        "conditions": [
+            "contraction30thermal",
+            "contraction5thermal"
+        ],
+        "values": [
+            1,
+            -1
+        ]
+    },
+    "contractionxthermal": {
+        "conditions": [
+            "contractionpain30",
+            "contractionwarm30",
+            "contractionpain5",
+            "contractionwarm5"
+        ],
+        "values": [
+            1,
+            -1,
+            -1,
+            1
+        ]
     }
 }

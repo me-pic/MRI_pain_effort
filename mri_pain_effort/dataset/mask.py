@@ -15,13 +15,25 @@ from nilearn.datasets import fetch_atlas_schaefer_2018
 from nilearn.plotting import find_parcellation_cut_coords
 
 
-ROI = {
-    "7Networks_RH_SalVentAttn_Med_2": 77,
-    "7Networks_RH_SomMot_8": 65,
-    "7Networks_LH_Cont_Cing_1": 36,
-    "7Networks_LH_SalVentAttn_Med_3": 29,
-    "7Networks_LH_SalVentAttn_Med_1": 27,
-    "7Networks_LH_SomMot_6": 14
+ROIS = {
+    "SMAaMCC": {
+        "7Networks_RH_SalVentAttn_Med_2": 77,
+        "7Networks_RH_SomMot_8": 65,
+        "7Networks_LH_Cont_Cing_1": 36,
+        "7Networks_LH_SalVentAttn_Med_3": 29,
+        "7Networks_LH_SalVentAttn_Med_1": 27,
+        "7Networks_LH_SomMot_6": 14
+    },
+    "SMA": {
+        "7Networks_RH_SomMot_8": 65,
+        "7Networks_LH_SalVentAttn_Med_3": 29,
+        "7Networks_LH_SomMot_6": 14
+    },
+    "aMCC": {
+        "7Networks_RH_SalVentAttn_Med_2": 77,
+        "7Networks_LH_Cont_Cing_1": 36,
+        "7Networks_LH_SalVentAttn_Med_1": 27
+    }
 }
 
 def create_group_masks(path_data, path_output):
@@ -99,15 +111,16 @@ def create_schaefer_masker(path_output, save_coords=False):
     # Retrieve atlas data
     atlas_data = atlas.get_fdata()
 
-    # Adjust ROI indices for 1-based indexing
-    adj_roi_indices = [ROI[roi] + 1 for roi in ROI]
+    for roi in ROIS:
+        # Adjust ROI indices for 1-based indexing
+        adj_roi_indices = [ROIS[roi][r] + 1 for r in ROIS[roi]]
 
-    # Create binary mask
-    binary_mask_data = np.isin(atlas_data, adj_roi_indices).astype(np.uint8)
-    binary_mask_img = nib.Nifti1Image(binary_mask_data, affine=atlas.affine)
+        # Create binary mask
+        binary_mask_data = np.isin(atlas_data, adj_roi_indices).astype(np.uint8)
+        binary_mask_img = nib.Nifti1Image(binary_mask_data, affine=atlas.affine)
 
-    # Save mask
-    binary_mask_img.to_filename(os.path.join(path_output, 'mask-shaeffer100_roi-SMAaMCC.nii.gz'))
+        # Save mask
+        binary_mask_img.to_filename(os.path.join(path_output, f'mask-shaeffer100_roi-{roi}.nii.gz'))
 
 
 if __name__ == "__main__":
