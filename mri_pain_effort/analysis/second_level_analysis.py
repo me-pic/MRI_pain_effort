@@ -65,7 +65,7 @@ def run_second_level_glm(path_data, path_mask, path_output, contrasts, subject_r
 
         if subject_regressor:
             # Create subject regressors
-            subject_effect = np.vstack([np.eye(len(subjects)) for _ in range(len(contrasts[contrast]))])
+            subject_effect = np.vstack([np.eye(len(subjects)) for _ in range(len(contrasts[contrast]['conditions']))])
 
             # Create the design matrix
             design_matrix = pd.DataFrame(
