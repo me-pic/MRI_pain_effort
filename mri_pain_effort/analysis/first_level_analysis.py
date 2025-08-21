@@ -16,7 +16,7 @@ from nilearn.glm.first_level import FirstLevelModel
 from mri_pain_effort.dataset.first_level_contrasts import make_localizer_contrasts
 
 
-def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_variance', 'effect_size'], events_desc="events"):
+def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_size'], events_desc="events"):
     """
     Compute First Level GLM to get activation maps
 
@@ -84,7 +84,7 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             else:
                 event = layout.get(subject=subject, extension="tsv",run=run, invalid_filters='allow')
                 event = [e for e in event if events_desc in e.filename]
-
+                
             if len(event) == 0:
                 warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
                 continue
