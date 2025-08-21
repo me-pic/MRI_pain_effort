@@ -87,12 +87,10 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
         for idx, cond in enumerate(contrasts[contrast]['conditions']):
             # Get conditions files
             files = layout.get(extension='nii.gz', invalid_filters='allow')
-            pprint.pprint(files)
 
             # Filter to get the condition files
-            tmp_conditions = [f for f in files if 'stat-effectsize' in f.filename and cond in f.filename]
-            filenames = [*filenames, *tmp_conditions]
-
+            tmp_conditions = [f for f in files if 'stat-effectsize' in f.filename and cond == '_'.join(f.filename.split('.')[0].split('_')[-2:])]
+   
             # Check the files collected
             print("collected files: ")
             pprint.pprint(tmp_conditions)
@@ -111,8 +109,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
             regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=var)
             tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, run_renaming=run_renaming)
 
-            # Get conditions and values
-            second_level_input = [*second_level_input, *[f.get_image() for f in tmp_data]]
+            filenames = [*filenames, *tmp_data]
             # Concatenate the regressors for `cond` in the design_matrix
             design_matrix = pd.concat([design_matrix, tmp_design_matrix], ignore_index=True)
 
@@ -121,6 +118,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
 
         print("... Fitting second level model")
         # Defining the SecondLevelModel
+        second_level_input = [f.get_image() for f in filenames]
         second_level_model = SecondLevelModel(mask_img=path_mask)
         # Fitting the SecondLevelModel
         second_level_model = second_level_model.fit(
@@ -142,7 +140,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
             # Saving the output
             print("... Saving outputs")
             Path(path_output / contrast).mkdir(parents=True, exist_ok=True)
-
+            design_matrix['filenames'] = filenames
             design_matrix.to_csv(os.path.join(path_output, contrast, f'design_matrix_{v}.tsv'), sep='\t', index=False)
 
             nib.save(z_map, os.path.join(path_output, contrast, f"z_map_{v}.nii.gz"))
