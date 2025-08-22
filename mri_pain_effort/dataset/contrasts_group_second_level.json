@@ -1,0 +1,54 @@
+{
+    "contractions": {
+        "conditions": [
+            "ContractionPain_30",
+            "ContractionPain_5",
+            "ContractionWarm_30",
+            "ContractionWarm_5"
+        ],
+        "values": {
+            "Contractionpainminwarm": [
+                1,
+                1,
+                -1,
+                -1
+            ],
+            "Contraction30min5": [
+                1,
+                -1,
+                1,
+                -1
+            ]
+        },
+        "regressor": [
+            "conditions",
+            "subjects",
+            "runs"
+        ]
+    },
+    "ContractionSolo": {
+        "conditions": [
+            "ContractionSolo_30",
+            "ContractionSolo_5"
+        ],
+        "values": {
+            "ContractionSolo30min5": [
+                1,
+                -1
+            ],
+            "ContractionSolo30": [
+                1,
+                0
+            ],
+            "ContractionSolo5": [
+                0,
+                1
+            ]
+        },
+        "regressor": [
+            "conditions",
+            "subjects",
+            "runs"
+        ]
+    }
+}

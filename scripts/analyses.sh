@@ -7,7 +7,9 @@ python mri_pain_effort/analysis/first_level_analysis.py /data/$2/PAINxEFFORT/Pai
 python mri_pain_effort/analysis/first_level_analysis.py /data/$2/PAINxEFFORT/PainxEffort.fmriprep/ /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii /data/$2/PAINxEFFORT/derivatives/first_level_analysis.onspain/ --events events_tbyt_onspain
 
 # Second level analysis
-python mri_pain_effort/analysis/second_level_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis/ /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii --path_output /data/$2/PAINxEFFORT/derivatives/second_level_analysis/ --subject_regressor
+python mri_pain_effort/analysis/second_level_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii.gz contrasts_group_second_level.json --path_output /data/$2/PAINxEFFORT/derivatives/group_analysis --group_level --path_events /data/$2/PAINxEFFORT/PainxEffort.fmriprep
+python mri_pain_effort/analysis/second_level_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii.gz contrasts_group_second_level_onspain.json --path_output /data/$2/PAINxEFFORT/derivatives/group_analysis.onspain --group_level --path_events /data/$2/PAINxEFFORT/PainxEffort.fmriprep
+python mri_pain_effort/analysis/second_level_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii.gz contrasts_subject_second_level.json --path_output /data/$2/PAINxEFFORT/derivatives/second_level_analysis --path_events /data/$2/PAINxEFFORT/PainxEffort.fmriprep
 
 # Parametric regression
 python mri_pain_effort/analysis/parametric_regression_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis/ /data/$2/PAINxEFFORT/PainxEffort.fmriprep/ /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii --path_output /data/$2/PAINxEFFORT/derivatives/parametric_regression/

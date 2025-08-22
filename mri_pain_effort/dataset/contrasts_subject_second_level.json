@@ -1,0 +1,47 @@
+{
+    "contractionxthermal": {
+        "conditions": [
+            "ContractionPain_30",
+            "ContractionPain_5",
+            "ContractionWarm_30",
+            "ContractionWarm_5"
+        ],
+        "param_regressor": "rating_effort",
+        "values": {
+            "painminwarm": [
+                1,
+                1,
+                -1,
+                -1
+            ],
+            "contraction30min5":[
+                1,
+                -1,
+                1,
+                -1
+            ],
+            "pain30minwarm30": [
+                1,
+                0,
+                -1,
+                0
+            ],
+            "pain5minwarm5": [
+                0,
+                1,
+                0,
+                -1
+            ],
+            "interaction": [
+                1,
+                -1,
+                -1,
+                1
+            ] 
+        },
+        "regressor": [
+            "conditions",
+            "runs"
+        ]
+    }
+}

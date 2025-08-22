@@ -1,6 +1,7 @@
 import os
 import json
 import pprint
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -14,7 +15,7 @@ from nilearn.glm import threshold_stats_img
 from nilearn.glm.second_level import SecondLevelModel
 
 
-def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_events=None, group_level=False, behavioral_score=False, run_renaming=None):
+def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_events=None, group_level=False, run_renaming=None):
     """
     Compute Second Level GLM
 
@@ -52,7 +53,7 @@ def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_even
     if group_level:
         group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming)
     else:
-        subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, behavioral_score=behavioral_score)
+        subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts)
 
 
 def group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming=None):
@@ -80,14 +81,14 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
     # Iterating trough contrasts
     for contrast in contrasts:
         print(f"\nComputing group level GLM for contrast {contrast}")
-        # Instantiating empty lists
+        # Instantiating empty variables
         design_matrix = pd.DataFrame()
         second_level_input, filenames = [], []
 
-        for idx, cond in enumerate(contrasts[contrast]['conditions']):
-            # Get conditions files
-            files = layout.get(extension='nii.gz', invalid_filters='allow')
+        # Get files
+        files = layout.get(extension='nii.gz', invalid_filters='allow')
 
+        for cond in contrasts[contrast]['conditions']:
             # Filter to get the condition files
             tmp_conditions = [f for f in files if 'stat-effectsize' in f.filename and cond == '_'.join(f.filename.split('.')[0].split('_')[-2:])]
    
@@ -154,7 +155,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
                 nib.save(corrected_z_map, os.path.join(path_output, contrast, f"z_map_thresholded_q{str(threshold).split('.')[1]}_{v}.nii.gz")) 
 
 
-def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, behavioral_score=None):
+def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts):
     """
     Compute second level glm at the subject level
 
@@ -181,84 +182,76 @@ def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, c
 
         for contrast in contrasts:
             print(f"\nComputing subject level GLM for contrast {contrast}")
-            files_all = []
-            cols = []
+            # Instantiating empty variables
+            design_matrix = pd.DataFrame()
+            filenames = []
 
+            # Get files
             files = layout.get(subject=subject, extension='nii.gz', invalid_filters='allow')
-            for condition in contrasts[contrast]['conditions']:
-                files_filtered = [f for f in files if 'effectsize' in f.filename and condition in f.filename]
-                files_all = [*files_all, *files_filtered]
+            runs = layout.get_runs(subject=subject)
+            entities = files[0].get_entities()
 
-            if 'conditions' in contrasts[contrast]['regressor']:
-                cols = [*cols, *contrasts[contrast]['conditions']]
-            if behavioral_score in contrasts[contrast]['regressor']:
-                behav_cols = [f'{behavioral_score}_{cond}' for cond in contrasts[contrast]['conditions']]
-                cols = [*cols, *behav_cols]
-            if 'runs' in contrasts[contrast]['regressor']:
-                runs = layout.get_runs(subject=subject)
-                runs = [f'run-{r}' for r in runs]
-                cols = [*cols, *runs]
-
-            # Build design matrix
-            regressors = pd.DataFrame(0, index=np.arange(len(files_all)), columns=cols)
-            
-            for idx, f in enumerate(files_all):
-                entities = f.get_entities()
-                events = layout_events.get(
-                    subject=entities['subject'],
-                    run=entities['run'],
-                    suffix='events'
-                )
-            
-                if len(events) > 1:
-                    raise ValueError('More than one events file found')
-                df_events = events[0].get_df()
-
-                condition = [cond for cond in contrasts[contrast]['conditions'] if cond in f.filename][0]
-            
-                if 'runs' in contrasts[contrast]['regressor']:              
-                    regressors.loc[regressors.index[idx], f'run-{entities["run"]}'] = 1
-                if 'conditions' in contrasts[contrast]['regressor']:
-                    regressors.loc[regressors.index[idx], condition] = 1
-                if behavioral_score in contrasts[contrast]['regressor']:
-                    regressors.loc[regressors.index[idx], f'{behavioral_score}_{condition}'] = df_events[df_events['trial_type']==f'{entities["desc"]}_{condition}'][behavioral_score].iloc[0]
-
-            # Mean center behavioral scores
-            if behavioral_score in contrasts[contrast]['regressor']:
-                cols = [col for col in regressors.columns if behavioral_score in col]
-                for col in cols:
-                    regressors[col] = regressors[col] - regressors[col].mean()
-
-            # Fit GLM
-            second_level_input = [f.get_image() for f in files_all]
-
-            second_level_model = SecondLevelModel(mask_img=path_mask)
-            second_level_model = second_level_model.fit(
-                second_level_input, design_matrix=regressors
-            )
-
-            # Retrieve contrasts
-            contrasts_values = [0]*len(regressors.columns)
-            # Add values for contrasts
             for idx, cond in enumerate(contrasts[contrast]['conditions']):
-                idx_regressors = regressors.columns.tolist().index(f'{behavioral_score}_{cond}')
-                contrasts_values[idx_regressors] = contrasts[contrast]['values'][idx]
+                tmp_conditions = [f for f in files if 'stat-effectsize' in f.filename and cond == '_'.join(f.filename.split('.')[0].split('_')[-2:])]
 
-            # Compute contrasts
-            effectsize_map = second_level_model.compute_contrast(
-                second_level_contrast=contrasts_values,
-                output_type='effect_size'
+                # Check the files collected
+                print("collected files: ")
+                pprint.pprint(tmp_conditions)
+                
+                var = []
+                if "param_regressor" in contrasts[contrast]["regressor"]:
+                    var = var + contrasts[contrast]['param_regressor']
+                if "conditions" in contrasts[contrast]["regressor"]:
+                    var = var+contrasts[contrast]['conditions']
+                if "runs" in contrasts[contrast]["regressor"]:
+                    var = var+[f'run-{r}' for r in runs]
+
+                regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=var)
+                tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond)
+
+                filenames = [*filenames, *tmp_data]
+                # Concatenate the regressors for `cond` in the design_matrix
+                design_matrix = pd.concat([design_matrix, tmp_design_matrix], ignore_index=True)
+
+                # Create behavioral contrasts
+                if 'param_regressor' in contrasts[contrast].keys():
+                    # Contrasts computed at the run level not at the condition level
+                    if idx == 0:
+                        _build_behavioral_contrasts(tmp_conditions, layout_events, contrasts[contrast], sub_out_dir)
+
+            # Check the shape of the design matrix
+            print(f"Design matrix shape: {design_matrix.shape}")
+
+            print("... Fitting second level model")
+            # Defining the SecondLevelModel
+            second_level_input = [f.get_image() for f in filenames]
+            second_level_model = SecondLevelModel(mask_img=path_mask)
+            # Fitting the SecondLevelModel
+            second_level_model = second_level_model.fit(
+                second_level_input, design_matrix=design_matrix
             )
-            nib.save(effectsize_map, os.path.join(sub_out_dir, f"effectsize_map_{contrast}.nii.gz"))
+            
+            for v in contrasts[contrast]['values']:
+                contrasts_values = [0]*len(design_matrix.columns)
+                # Add values for contrasts
+                for idx, cond in enumerate(contrasts[contrast]['conditions']):
+                    idx_regressors = design_matrix.columns.tolist().index(cond)
+                    contrasts_values[idx_regressors] = contrasts[contrast]['values'][v][idx]
+                # Get maps
+                es_map = second_level_model.compute_contrast(
+                    second_level_contrast=contrasts_values,
+                    output_type="effect_size",
+                )
+                # Saving the output
+                print("... Saving outputs")
+                Path(path_output / contrast).mkdir(parents=True, exist_ok=True)
 
-            # Save design matrix
-            regressors['filenames'] = files_all
-            regressors.to_csv(
-                    os.path.join(sub_out_dir, f"design_matrix_{contrast}.tsv"),
-                    sep='\t',
-                    index=False
-            )
+                nib.save(es_map, os.path.join(sub_out_dir, f"sub-{subject}_task-{entities['task']}_stat-effectsize_desc-{v}.nii.gz"))
 
+            # Save design matrix    
+            design_matrix['filenames'] = filenames
+            design_matrix.to_csv(os.path.join(sub_out_dir, f"sub-{subject}_task-{entities['task']}_designmatrix-{contrast}.tsv"), sep='\t', index=False)
+            
 
 def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_renaming=None):
     """
@@ -276,6 +269,8 @@ def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_re
         Dictionary containing the parametric regression parameters
     cond: str
         Experimental condition
+    run_renaming: dict
+        Used if there are any run number adjustements to do for some participants
 
     Return
     ------
@@ -309,11 +304,11 @@ def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_re
             value = int(event[event['trial_type'].str.contains(f'{entities["desc"]}_{cond}', case=False, na=False)][contrast['param_regressor']])
             regressors.loc[regressors.index[idx], contrast['param_regressor']] = value
 
-
         # Add values
         if "runs" in contrast["regressor"]:
-            if subject in run_renaming.keys():
-                run = run_renaming[subject][run]
+            if run_renaming is not None:
+                if subject in run_renaming.keys():
+                    run = run_renaming[subject][run]
             regressors.loc[regressors.index[idx], f'run-{run}'] = 1
 
         if "subjects" in contrast["regressor"]:
@@ -323,6 +318,59 @@ def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_re
             regressors.loc[regressors.index[idx], cond] = 1
             
     return data_tmp, regressors
+
+
+def _build_behavioral_contrasts(data, layout_events, contrast, path_output):
+    """
+    Compute contrast for the behavioral scores
+
+    Parameters
+    ----------
+    data: list
+        List containing the activation maps filename
+    layout_events: BIDSLayout
+        BIDSLayout to get the events files
+    contrast: dict
+        Dictionary containing the parametric regression parameters
+    """
+    for v in contrast['values']:
+        for idx, d in enumerate(data):
+            print(f"\nComputing behavioral contrasts for {d.filename}")
+            # Retrieve entties of the BIDSImageFile
+            entities = d.get_entities()
+            subject = entities['subject']
+            runs = layout_events.get_runs(subject=subject)
+            ratings_conditions, weights = [], []
+
+            for run in runs:
+                # Get events file
+                event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
+                # Making sure we have only one event file for a given subject/run
+                if len(event) == 0:
+                    warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
+                    continue
+                if len(event) > 1:
+                    raise ValueError(f"Multiple events files found for subject sub-{subject}, run {run}...")
+
+                print(f"... Loading events file: {event[0].filename}")
+                # Get events
+                event = event[0].get_df()
+
+                for idx, cond in enumerate(contrast['conditions']):
+                    # Get ratings
+                    tmp_ratings = event[event['trial_type'].str.contains(cond, case=False, na=False)][contrast['param_regressor']]
+                    for t in tmp_ratings:
+                        ratings_conditions.append(t)
+                        weights.append(contrast['values'][v][idx])
+
+            # Compute contrasts on normalized ratings
+            normalized_ratings = (np.array(ratings_conditions) - np.min(np.array(ratings_conditions))) / (np.max(np.array(ratings_conditions)) - np.min(np.array(ratings_conditions)))
+            normalized_ratings = np.sum(normalized_ratings * np.array(weights))
+            print(f"Shape ratings: {len(ratings_conditions)}")
+            # Compute contrasts on raw ratings
+            ratings = np.sum(ratings_conditions * np.array(weights))
+            # Save behavioral contrast
+            pd.DataFrame({contrast['param_regressor']: ratings, f"{contrast['param_regressor']}_normalized": normalized_ratings}, index=[0]).to_csv(os.path.join(path_output, f"sub-{subject}_task-{entities['task']}_desc-{''.join(contrast['param_regressor'].split('_'))}_{v}.tsv"), sep='\t', index=False)
 
 
 if __name__ == "__main__":
@@ -360,12 +408,6 @@ if __name__ == "__main__":
         action="store_true",
         help="If flag specified, GLM will be used to compute group level test"
     )
-    parser.add_argument(
-        "--behavioral_score",
-        type=str,
-        default=None,
-        help="Name of the column containing the behavioral score to use"
-    )
     args = parser.parse_args()
 
     # Get contrasts
@@ -385,4 +427,4 @@ if __name__ == "__main__":
         file.close()
 
     # Run second level analyses
-    run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts, args.path_events, args.group_level, args.behavioral_score, run_renaming)
+    run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts, args.path_events, args.group_level, run_renaming)

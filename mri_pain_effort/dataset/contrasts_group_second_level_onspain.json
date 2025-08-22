@@ -1,0 +1,23 @@
+{
+    "painminwarm": {
+        "conditions": [
+            "Pain_30",
+            "Pain_5",
+            "Warm_30",
+            "Warm_5"
+        ],
+        "values": {
+            "painminwarm": [
+                1,
+                1,
+                -1,
+                -1
+            ]
+        },
+        "regressor": [
+            "conditions",
+            "subjects",
+            "runs"
+        ]
+    }
+}
