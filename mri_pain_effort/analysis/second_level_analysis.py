@@ -15,7 +15,7 @@ from nilearn.glm import threshold_stats_img
 from nilearn.glm.second_level import SecondLevelModel
 
 
-def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_events=None, group_level=False, run_renaming=None):
+def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_events=None, group_level=False, run_renaming=None, transform=None):
     """
     Compute Second Level GLM
 
@@ -51,12 +51,12 @@ def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_even
     path_output = Path(path_output)
 
     if group_level:
-        group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming)
+        group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming, transform)
     else:
         subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts)
 
 
-def group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming=None):
+def group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming=None, transform=None):
     """
     Compute second level glm at the group level
 
@@ -90,7 +90,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
 
         for cond in contrasts[contrast]['conditions']:
             # Filter to get the condition files
-            tmp_conditions = [f for f in files if 'stat-effectsize' in f.filename and cond == '_'.join(f.filename.split('.')[0].split('_')[-2:])]
+            tmp_conditions = [f for f in files if 'stat-effectsize' in f.filename and cond in f.filename] # == '_'.join(f.filename.split('.')[0].split('_')[-2:])]
    
             # Check the files collected
             print("collected files: ")
@@ -99,7 +99,11 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
             # Build design matrix
             var = []
             if "param_regressor" in contrasts[contrast]["regressor"]:
-                var = var + contrasts[contrast]['param_regressor']
+                if contrasts[contrast]['param_regressor'] in contrasts[contrast]['values'].keys():
+                    if np.sum(contrasts[contrast]['values'][contrasts[contrast]['param_regressor']]) == 0:
+                        var = var + [contrasts[contrast]['param_regressor']]
+                else:
+                    var = var + [f"{contrasts[contrast]['param_regressor']}_{cond}" for cond in contrasts[contrast]['conditions']]
             if "conditions" in contrasts[contrast]["regressor"]:
                 var = var+contrasts[contrast]['conditions']
             if "subjects" in contrasts[contrast]["regressor"]:
@@ -108,7 +112,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
                 var = var+runs
 
             regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=var)
-            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, run_renaming=run_renaming)
+            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, run_renaming=run_renaming, transform=transform)
 
             filenames = [*filenames, *tmp_data]
             # Concatenate the regressors for `cond` in the design_matrix
@@ -125,13 +129,21 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
         second_level_model = second_level_model.fit(
             second_level_input, design_matrix=design_matrix
         )
-
         for v in contrasts[contrast]['values']:
             contrasts_values = [0]*len(design_matrix.columns)
             # Add values for contrasts
-            for idx, cond in enumerate(contrasts[contrast]['conditions']):
-                idx_regressors = design_matrix.columns.tolist().index(cond)
-                contrasts_values[idx_regressors] = contrasts[contrast]['values'][v][idx]
+            if 'param_regressor' in contrasts[contrast]['regressor']:
+                if all(x == 0 for x in contrasts[contrast]['values'][v]):
+                    idx_regressors = design_matrix.columns.tolist().index(contrasts[contrast]['param_regressor'])
+                    contrasts_values[idx_regressors] = 1
+                else:
+                    for idx, cond in enumerate(contrasts[contrast]['conditions']):
+                        idx_regressors = design_matrix.columns.tolist().index(f"{contrasts[contrast]['param_regressor']}_{cond}")
+                        contrasts_values[idx_regressors] = contrasts[contrast]['values'][v][idx]
+            else:
+                for idx, cond in enumerate(contrasts[contrast]['conditions']):
+                    idx_regressors = design_matrix.columns.tolist().index(cond)
+                    contrasts_values[idx_regressors] = contrasts[contrast]['values'][v][idx]
 
             # Get z maps
             z_map = second_level_model.compute_contrast(
@@ -141,9 +153,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
             # Saving the output
             print("... Saving outputs")
             Path(path_output / contrast).mkdir(parents=True, exist_ok=True)
-            design_matrix['filenames'] = filenames
-            design_matrix.to_csv(os.path.join(path_output, contrast, f'design_matrix_{v}.tsv'), sep='\t', index=False)
-
+            
             nib.save(z_map, os.path.join(path_output, contrast, f"z_map_{v}.nii.gz"))
 
             # Apply the FDR correction on the map
@@ -153,6 +163,10 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
                 )
                 # Save the corrected map
                 nib.save(corrected_z_map, os.path.join(path_output, contrast, f"z_map_thresholded_q{str(threshold).split('.')[1]}_{v}.nii.gz")) 
+        
+        # Saving design matrix
+        design_matrix['filenames'] = filenames
+        design_matrix.to_csv(os.path.join(path_output, contrast, f'design_matrix.tsv'), sep='\t', index=False)
 
 
 def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts):
@@ -253,7 +267,7 @@ def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, c
             design_matrix.to_csv(os.path.join(sub_out_dir, f"sub-{subject}_task-{entities['task']}_designmatrix-{contrast}.tsv"), sep='\t', index=False)
             
 
-def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_renaming=None):
+def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_renaming=None, transform=None):
     """
     Build design matrix to use for the GLM
 
@@ -284,26 +298,51 @@ def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_re
         # Retrieve entties of the BIDSImageFile
         entities = d.get_entities()
         subject = entities['subject']
-        run = str(entities['run'])
+        if 'run' in entities.keys():
+            run = str(entities['run'])
+        else:
+            run = None
 
         if 'param_regressor' in contrast['regressor']:
-            # Retrieve events file associated to that specific subject/run
-            event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
+            if layout_events.root == '/'.join(d.dirname.split('/')[:-2]):
+                # Retrieve events file associated to that specific subject
+                event = layout_events.get(subject=subject, run=run, extension='tsv')
+                event = [e for e in event if cond in e.filename] 
 
-            # Making sure we have only one event file for a given subject/run
-            if len(event) == 0:
-                warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
-                continue
-            if len(event) > 1:
-                raise ValueError(f"Multiple events files found for subject sub-{subject}, run {run}...")
+                # Making sure we have only one event file for a given subject/run
+                if len(event) == 0:
+                    warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
+                    continue
+                if len(event) > 1:
+                    raise ValueError(f"Multiple events files found for subject sub-{subject}, run {run}...")
 
-            print(f"... Loading events file: {event[0].filename}")
-            # Get events
-            event = event[0].get_df()
+                print(f"... Loading events file: {event[0].filename}")
+                # Get events
+                df_event = event[0].get_df()
+                # Get parametric regressor value
+                value = df_event[contrast['param_regressor']]
+                regressors.loc[regressors.index[idx], contrast['param_regressor']] = float(value.iloc[0])
+            else:
+                # Retrieve events file associated to that specific subject/run
+                event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
 
-            value = int(event[event['trial_type'].str.contains(f'{entities["desc"]}_{cond}', case=False, na=False)][contrast['param_regressor']])
-            regressors.loc[regressors.index[idx], contrast['param_regressor']] = value
+                # Making sure we have only one event file for a given subject/run
+                if len(event) == 0:
+                    warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
+                    continue
+                if len(event) > 1:
+                    raise ValueError(f"Multiple events files found for subject sub-{subject}, run {run}...")
 
+                print(f"... Loading events file: {event[0].filename}")
+                # Get events
+                df_event = event[0].get_df()
+                value = df_event[df_event['trial_type'].str.contains(f'{entities["desc"]}_{cond}', case=False, na=False)][contrast['param_regressor']]
+                if len([r for r in regressors.columns if contrast['param_regressor'] in r]) > 1:
+                    regressors.loc[regressors.index[idx], f"{contrast['param_regressor']}_{cond}"] = float(value.iloc[0])
+                elif len([r for r in regressors.columns if contrast['param_regressor'] in r]) == 1:
+                    regressors.loc[regressors.index[idx], contrast['param_regressor']] = float(value.iloc[0])
+                else:
+                    raise ValueError("Can't add `value` in the design matrix...")
         # Add values
         if "runs" in contrast["regressor"]:
             if run_renaming is not None:
@@ -316,7 +355,19 @@ def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_re
             
         if "conditions" in contrast["regressor"]:
             regressors.loc[regressors.index[idx], cond] = 1
-            
+
+    if transform is not None:
+        if len([r for r in regressors.columns if contrast['param_regressor'] in r]) > 1:
+            if transform == 'normalized':
+                regressors[f"{contrast['param_regressor']}_{cond}"] = (regressors[f"{contrast['param_regressor']}_{cond}"]-regressors[f"{contrast['param_regressor']}_{cond}"].min()) / (regressors[f"{contrast['param_regressor']}_{cond}"].max() - regressors[f"{contrast['param_regressor']}_{cond}"].min())
+            elif transform == 'mean_centered':            
+                regressors[f"{contrast['param_regressor']}_{cond}"] = regressors[f"{contrast['param_regressor']}_{cond}"] - regressors[f"{contrast['param_regressor']}_{cond}"].mean()
+        elif len([r for r in regressors.columns if contrast['param_regressor'] in r]) == 1:
+            if transform == 'normalized':
+                regressors[contrast['param_regressor']] = (regressors[contrast['param_regressor']]-regressors[contrast['param_regressor']].min()) / (regressors[contrast['param_regressor']].max() - regressors[contrast['param_regressor']].min())
+            elif transform == 'mean_centered':            
+                regressors[contrast['param_regressor']] = regressors[contrast['param_regressor']] - regressors[contrast['param_regressor']].mean()
+
     return data_tmp, regressors
 
 
@@ -408,6 +459,13 @@ if __name__ == "__main__":
         action="store_true",
         help="If flag specified, GLM will be used to compute group level test"
     )
+    parser.add_argument(
+        "--transform",
+        type=str,
+        default = None,
+        help="Specify the transformation to apply to the parametric regressor. Possible choices includes `mean_centered` and `normalized`",
+        choices=["mean_centered", "normalized"]
+    )
     args = parser.parse_args()
 
     # Get contrasts
@@ -427,4 +485,4 @@ if __name__ == "__main__":
         file.close()
 
     # Run second level analyses
-    run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts, args.path_events, args.group_level, run_renaming)
+    run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts, args.path_events, args.group_level, run_renaming, args.transform)

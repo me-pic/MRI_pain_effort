@@ -38,7 +38,7 @@ Once those files have been configured based on your own conditions, you can run 
 python mri_pain_effort/analysis/first_level_analysis.py --help
 ```
 
-This will show you the different arguments that need to be specified when calling the script. The positional arguments are the ones that are required, and the optional arguments are optional. The `--subject` argument can be specified if you want to run the first levle glm on a specific subject, otherwise the script will run the first level analysis on all subjects found in `path_data`. The `--events` argument can be used if you want to use different files from the `*_events.tsv` files to define the onset and duration of your trials.
+This will show you the different arguments that need to be specified when calling the script. The positional arguments are the ones that are required, and the optional arguments are optional. The `--subject` argument can be specified if you want to run the first level glm on a specific subject, otherwise the script will run the first level analysis on all subjects found in `path_data`. The `--events` argument can be used if you want to use different files from the `*_events.tsv` files to define the onset and duration of your trials.
 
 To run the analysis, you can call the script in your terminal (don't forget to replace the exact argument values by your own paths):
 
@@ -54,7 +54,7 @@ The second level analysis script can be found under `mri_pain_effort/analysis/se
 python mri_pain_effort/analysis/second_level_analysis.py --help
 ```
 
-Just like the previous scripts, this script takes as arguments `path_data` (directory containing the input of the second level GLM), `path_mask`, and `--path_ouput`. This script also the positional argument `contrasts_filename` which is the path to the contrasts file to use to compute the second level GLM, `--path_events` which is the directory containing the `*events.tsv` files (i.e. fmriprep output directory), `--group_level` which, if specified, will compute the second level GLM at the group level (otherwise at the subject level), and `--behavioral_score` which specify the name of the parametric regressor to include (the value should match the name of the columns in the `*events.tsv` files that contain the behavioral scores).
+Just like the previous scripts, this script takes as arguments `path_data` (directory containing the input of the second level GLM), `path_mask`, and `--path_ouput`. This script also takes the positional argument `contrasts_filename` which is the path to the contrasts file to use to compute the second level GLM, `--path_events` which is the directory containing the `*events.tsv` files (i.e. fmriprep output directory), `--group_level` which, if specified, will compute the second level GLM at the group level (otherwise at the subject level), and `--behavioral_score` which specify the name of the parametric regressor to include (the value should match the name of the columns in the `*events.tsv` files that contain the behavioral scores).
 
 The configuration file to run this script should have a format similar to the following, regardless you are running it at the subject-level or at the group-level (using the `--group_level` flag):
 
@@ -107,44 +107,6 @@ Example of second level GLM at the group level without considering any parametri
 ```bash
 python mri_pain_effort/analysis/second_level_analysis.py '/path/to/your/second/level/input/' '/path/to/your/group/level/mask/mymask.nii.gz' 'your_second_level_config_file_group_level.json' --path_ouput '/path/to/save/the/data/' --group_level
 ```
-
-## Parametric regression analysis
-
-The parametric regression analysis script can be found under `mri_pain_effort/analysis/parametric_regression_analysis.py`. This script will automatically retrieve one configuration file:
-- `contrasts_parametric_regression.json`
-
-:warning: TODO
-
-The `contrasts_parametric_regression.json` contains the conditions for which to compute the parametric regression. 
-
-The configuration file to run this script should have a format similar to the following:
-
-{
-    "contrast1": {
-        "conditions": [
-            "ConditionAminB"
-        ],
-        "param_regressor": "rating_effort",
-        "regressor": [
-            "subjects",
-            "runs"
-        ]
-        "contrasts": "ContractionA-ContractionB"
-    }
-}
-
-The value `"contrast1"` could be change to reflect the name of the contrast you want to compute. The keys `"conditions"`, `"param_regressor"`, `"regressors"`, `"contrasts"` SHOULD NOT change, but the value related to those keys can change to specify your own parameters. 
-- For example, the values in `"conditions"` should match the name of the conditions used to save input maps. 
-- The value of `"param_regressor"` should match the name of the column containing your parametric regressor in the `*events.tsv` files.
-- The values in `"regressor"` could be "conditions", "subjects", "runs". If "conditions" is specified in `"regressor"`, one regressor will be added for each condition specified in `"conditions"`, if "runs" is specified, one regressor will be added to model the functional runs. If "subjects" is specified, one regressor per subject will be added.
-
-To get the script arguments, you can call in the terminal the following function (taking into account that you are at the root of the repository):
-
-```bash
-python mri_pain_effort/analysis/parametric_regression_analysis.py --help
-```
-
-This script takes as positional arguments `path_data`, `path_events`, `path_mask`, and as a optional argument `--path_ouput`.
 
 ## MVPA
 

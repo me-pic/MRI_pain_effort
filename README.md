@@ -48,7 +48,6 @@ Content of `mri_pain_effort/`:
 - `analysis/` contains the scripts to run the analyses
     - `first_level_analysis.py`
     - `second_level_analysis.py`
-    - `parametric_regression_analysis.py`
     - `mvpa_analysis.py`
     - `mvpa_utils.py`
 - `visualization/` contains the scripts to plot the figures

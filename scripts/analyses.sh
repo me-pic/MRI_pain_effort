@@ -12,7 +12,8 @@ python mri_pain_effort/analysis/second_level_analysis.py /data/$2/PAINxEFFORT/de
 python mri_pain_effort/analysis/second_level_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii.gz contrasts_subject_second_level.json --path_output /data/$2/PAINxEFFORT/derivatives/second_level_analysis --path_events /data/$2/PAINxEFFORT/PainxEffort.fmriprep
 
 # Parametric regression
-python mri_pain_effort/analysis/parametric_regression_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis/ /data/$2/PAINxEFFORT/PainxEffort.fmriprep/ /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii --path_output /data/$2/PAINxEFFORT/derivatives/parametric_regression/
+python mri_pain_effort/analysis/second_level_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii.gz contrasts_parametric_regression.json --path_output /data/$2/PAINxEFFORT/derivatives/parametric_regression --path_events /data/$2/PAINxEFFORT/PainxEffort.fmriprep --group_level --transform mean_centered
+python mri_pain_effort/analysis/second_level_analysis.py /data/$2/PAINxEFFORT/derivatives/second_level_analysis /data/$2/PAINxEFFORT/derivatives/masks/resampled_whole-brain_group_mask.nii.gz contrasts_parametric_regression_group.json --path_output /data/$2/PAINxEFFORT/derivatives/parametric_regression_group  --path_events /data/$2/PAINxEFFORT/derivatives/second_level_analysis --group_level
 
 # MVPA analysis
 python mri_pain_effort/analysis/mvpa_analysis.py /data/$2/PAINxEFFORT/derivatives/first_level_analysis /data/$2/PAINxEFFORT/PainxEffort.fmriprep/ /data/$2/PAINxEFFORT/derivatives/masks/mask-shaeffer100_roi-SMAaMCC.nii.gz --path_output /data/$2/PAINxEFFORT/derivatives/mvpa_analysis
