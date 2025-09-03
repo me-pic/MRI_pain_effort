@@ -91,7 +91,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
         for cond in contrasts[contrast]['conditions']:
             # Filter to get the condition files
             tmp_conditions = [f for f in files if 'stat-effectsize' in f.filename and cond in f.filename] # == '_'.join(f.filename.split('.')[0].split('_')[-2:])]
-   
+
             # Check the files collected
             print("collected files: ")
             pprint.pprint(tmp_conditions)
@@ -112,11 +112,15 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
                 var = var+runs
 
             regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=var)
-            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, run_renaming=run_renaming, transform=transform)
+            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, run_renaming=run_renaming)
 
             filenames = [*filenames, *tmp_data]
             # Concatenate the regressors for `cond` in the design_matrix
             design_matrix = pd.concat([design_matrix, tmp_design_matrix], ignore_index=True)
+
+        # Apply transformation on parametric regressor if applicable
+        if transform is not None:
+            design_matrix = _tranform_param_regressor(design_matrix, contrasts[contrast]['param_regressor'], transform=transform)
 
         # Check the shape of the design matrix
         print(f"Design matrix shape: {design_matrix.shape}")
@@ -267,7 +271,7 @@ def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, c
             design_matrix.to_csv(os.path.join(sub_out_dir, f"sub-{subject}_task-{entities['task']}_designmatrix-{contrast}.tsv"), sep='\t', index=False)
             
 
-def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_renaming=None, transform=None):
+def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_renaming=None):
     """
     Build design matrix to use for the GLM
 
@@ -356,19 +360,28 @@ def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_re
         if "conditions" in contrast["regressor"]:
             regressors.loc[regressors.index[idx], cond] = 1
 
-    if transform is not None:
-        if len([r for r in regressors.columns if contrast['param_regressor'] in r]) > 1:
-            if transform == 'normalized':
-                regressors[f"{contrast['param_regressor']}_{cond}"] = (regressors[f"{contrast['param_regressor']}_{cond}"]-regressors[f"{contrast['param_regressor']}_{cond}"].min()) / (regressors[f"{contrast['param_regressor']}_{cond}"].max() - regressors[f"{contrast['param_regressor']}_{cond}"].min())
-            elif transform == 'mean_centered':            
-                regressors[f"{contrast['param_regressor']}_{cond}"] = regressors[f"{contrast['param_regressor']}_{cond}"] - regressors[f"{contrast['param_regressor']}_{cond}"].mean()
-        elif len([r for r in regressors.columns if contrast['param_regressor'] in r]) == 1:
-            if transform == 'normalized':
-                regressors[contrast['param_regressor']] = (regressors[contrast['param_regressor']]-regressors[contrast['param_regressor']].min()) / (regressors[contrast['param_regressor']].max() - regressors[contrast['param_regressor']].min())
-            elif transform == 'mean_centered':            
-                regressors[contrast['param_regressor']] = regressors[contrast['param_regressor']] - regressors[contrast['param_regressor']].mean()
-
     return data_tmp, regressors
+
+
+def _tranform_param_regressor(design_matrix, param_regressor, transform='mean_centered'):
+    """
+    design_matrix: DataFrame
+        Design matrix containing the parametric regressor
+    param_regressor: str
+        Name of the parametric regressor
+    transform: str
+        Type of transformation to apply on the parametric regressor. Possible choices: 
+        `mean_centered` or `normalized`
+    """
+    cols = [c for c in design_matrix.columns if param_regressor in c]
+
+    for col in cols:
+        if transform == 'normalized':
+            design_matrix[col] = (design_matrix[col]-design_matrix[col].min()) / (design_matrix[col].max() - design_matrix[col].min())
+        elif transform == 'mean_centered':            
+            design_matrix[col] = design_matrix[col] - design_matrix[col].mean()
+
+    return design_matrix
 
 
 def _build_behavioral_contrasts(data, layout_events, contrast, path_output):
