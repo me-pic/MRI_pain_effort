@@ -18,6 +18,18 @@
                 -1,
                 1,
                 -1
+            ],
+            "ContractionPain30minWarm30": [
+                1,
+                0,
+                -1,
+                0
+            ],
+            "ContractionPain5minWarm5": [
+                0,
+                1,
+                0,
+                -1
             ]
         },
         "regressor": [
