@@ -84,7 +84,7 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             else:
                 event = layout.get(subject=subject, extension="tsv",run=run, invalid_filters='allow')
                 event = [e for e in event if events_desc in e.filename]
-                
+
             if len(event) == 0:
                 warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
                 continue
@@ -132,7 +132,7 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
                     sep='\t',
                     index=False
                 )
-            
+
             # Call the function to generate contrasts for all runs
             print("... Defining contrasts")
             localizer_contrasts = make_localizer_contrasts(design_matrix, conf_var)

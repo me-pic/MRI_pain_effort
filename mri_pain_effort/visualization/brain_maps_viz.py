@@ -9,7 +9,7 @@ from nilearn import plotting
 from argparse import ArgumentParser
 
 
-def plot_brain_maps(path_data, path_output, coords_to_plot, extension='svg'):
+def plot_brain_maps(path_data, path_output, coords_to_plot, vmax=6, extension='svg'):
     """
     Plot brain maps given a set of coordinates
     
@@ -46,7 +46,7 @@ def plot_brain_maps(path_data, path_output, coords_to_plot, extension='svg'):
                             black_bg=False,
                             display_mode=axis,
                             axes=ax,
-                            vmax=6,
+                            vmax=vmax,
                             cut_coords=(c,),
                             alpha=1,
                             annotate=False)
@@ -73,6 +73,11 @@ if __name__ == "__main__":
         type=str,
         help="Dictionary containing the coordinates for each axis (x,y,z)"
     )
+    parser.add_argument(
+        "--vmax",
+        type=int,
+        help="Max value for the colorbar"
+    )
     args = parser.parse_args()
 
     # Load coords
@@ -80,6 +85,6 @@ if __name__ == "__main__":
         coords = json.load(file)
         file.close()
 
-    plot_brain_maps(args.path_data, args.path_output, coords)
+    plot_brain_maps(args.path_data, args.path_output, coords, args.vmax)
 
 

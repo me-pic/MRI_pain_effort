@@ -107,9 +107,3 @@ Example of second level GLM at the group level without considering any parametri
 ```bash
 python mri_pain_effort/analysis/second_level_analysis.py '/path/to/your/second/level/input/' '/path/to/your/group/level/mask/mymask.nii.gz' 'your_second_level_config_file_group_level.json' --path_ouput '/path/to/save/the/data/' --group_level
 ```
-
-## MVPA
-
-The Multivariate Pattern Analysis scripts can be found under `mri_pain_effort/analysis/mvpa_analysis.py` and `mri_pain_effort/analysis/mvpa_utils.py`
-
-:warning: TODO
