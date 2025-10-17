@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 
 from pathlib import Path
 from bids import BIDSLayout
-from nilearn import plotting
 from argparse import ArgumentParser
+from nilearn import plotting, datasets
+from nilearn.image import resample_to_img
 
 
 def plot_brain_maps(path_data, path_output, coords_to_plot, vmax=6, extension='svg'):
@@ -28,6 +29,14 @@ def plot_brain_maps(path_data, path_output, coords_to_plot, vmax=6, extension='s
     """
     # Make sure path_output exists
     Path(path_output).mkdir(parents=True, exist_ok=True)
+
+    # Resample image to template
+    template =  datasets.load_mni152_template(resolution=1)
+    resampled_stat_img = resample_to_img(
+        path_data,
+        template,
+        interpolation="nearest"
+    )
     
     # Set parameters
     labelfontsize = 7
@@ -41,8 +50,12 @@ def plot_brain_maps(path_data, path_output, coords_to_plot, vmax=6, extension='s
                 plot_colorbar=True
             else:
                 plot_colorbar=False
-            disp = plotting.plot_stat_map(path_data, cmap=plotting.cm.cold_hot, colorbar=plot_colorbar,
+            disp = plotting.plot_stat_map(
+                            resampled_stat_img, 
+                            cmap=plotting.cm.cold_hot, 
+                            colorbar=plot_colorbar,
                             dim=-0.3,
+                            bg_img=template,
                             black_bg=False,
                             display_mode=axis,
                             axes=ax,
