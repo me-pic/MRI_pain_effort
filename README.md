@@ -4,7 +4,7 @@ This reposiory contains scripts used for a research project. The goal of this re
 
 ## Quick start
 
-To be able to run the code contained in this repository please follow those steps in your terminal:
+To be able to run the code contained in this repository for the fMRI analyses, please follow those steps in your terminal:
 
 1. First clone this repository
 
@@ -32,6 +32,8 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
+For the behavioral analysis, an R script is provided under `mri_pain_effort/analysis/behavioral_analysis.R`
+
 ## Repository structure
 
 Content of `mri_pain_effort/`: 
@@ -45,6 +47,7 @@ Content of `mri_pain_effort/`:
     - `run_renaming.json`: file specifying the run renaming for participants for which there were different runs name.
     - `README.md`: file containing specific information regarding how to setup the configuration files.
 - `analysis/` contains the scripts to run the analyses
+    - `behavioral_analysis.R`
     - `first_level_analysis.py`
     - `second_level_analysis.py`
 - `visualization/` contains the scripts to plot the figures
