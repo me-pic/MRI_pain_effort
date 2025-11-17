@@ -17,6 +17,7 @@ GAMLj3::gamljmixed(
 # Performance
 
 perf_10 <- read_csv("/Users/mepicard/Documents/P01_46_Macro_results_10s.csv")
+perf_10 <- perf_10[perf_10$'Temperature' != 'none', ]
 
 perf_10$'Participant' <- as.factor(perf_10$'Participant')
 perf_10$'Temperature' <- as.factor(perf_10$'Temperature')
@@ -28,6 +29,7 @@ GAMLj3::gamljmixed(
 )
 
 perf_6 <- read_csv("/Users/mepicard/Documents/P01_46_Macro_results_6s.csv")
+perf_6 <- perf_6[perf_6$'Temperature' != 'none', ]
 
 perf_6$'Participant' <- as.factor(perf_6$'Participant')
 perf_6$'Temperature' <- as.factor(perf_6$'Temperature')
@@ -39,6 +41,7 @@ GAMLj3::gamljmixed(
 )
 
 perf_5 <- read_csv("/Users/mepicard/Documents/P01_46_Macro_results_5s.csv")
+perf_5 <- perf_5[perf_5$'Temperature' != 'none', ]
 
 perf_5$'Participant' <- as.factor(perf_5$'Participant')
 perf_5$'Temperature' <- as.factor(perf_5$'Temperature')
