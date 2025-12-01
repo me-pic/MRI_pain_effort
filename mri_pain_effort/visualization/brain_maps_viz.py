@@ -55,7 +55,7 @@ def plot_brain_maps(path_data, path_output, coords_to_plot, vmax=6, extension='s
                             cmap=plotting.cm.cold_hot, 
                             colorbar=plot_colorbar,
                             dim=-0.3,
-                            bg_img=template,
+                            bg_img=template, #None,
                             black_bg=False,
                             display_mode=axis,
                             axes=ax,
