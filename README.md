@@ -1,4 +1,4 @@
-# Neural correlates of effort perception and pain during a visuo-motor task performance
+# Facing pain is effortful: key role of the supplementary motor area and anterior midcingulate cortex
 
 This reposiory contains scripts used for a research project. The goal of this research project was to examine the brain activation related to experimental pain and effort perception during a visuo-motor force-matching task. The first level GLM was run on the preprocessed BOLD timeseries (fMRIPrep output; [fMRIPrep](https://fmriprep.org/en/stable/) version 23.2.1). The other analyses were run using the trial-by-trial maps obtained from the first level GLM or the suject-level maps obtained using an intermediate GLM.
 
