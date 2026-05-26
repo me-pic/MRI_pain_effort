@@ -8,7 +8,7 @@ This reposiory contains scripts used for a research project. The goal of this re
 
 ## Quick start
 
-To be able to run the code contained in this repository please follow those steps in your terminal:
+To be able to run the code contained in this repository for the fMRI analyses, please follow those steps in your terminal:
 
 1. First clone this repository
 
@@ -35,6 +35,8 @@ source env/bin/activate
 pip install -r requirements.txt
 pip install -e .
 ```
+
+For the behavioral analysis, an R script is provided under `mri_pain_effort/analysis/behavioral_analysis.R`
 
 ## Repository structure
 
