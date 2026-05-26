@@ -42,24 +42,6 @@
                 -1,
                 1,
                 -1
-            ],
-            "EffortContractionPain30minWarm30": [
-                1,
-                0,
-                -1,
-                0
-            ],
-            "EffortContractionPain5minWarm5": [
-                0,
-                1,
-                0,
-                -1
-            ],
-            "EffortInteraction": [
-                1,
-                -1,
-                -1,
-                1
             ]
         },
         "regressor": [

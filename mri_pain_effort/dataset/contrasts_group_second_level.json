@@ -13,36 +13,6 @@
                 -1,
                 -1
             ],
-            "Contraction30min5": [
-                1,
-                -1,
-                1,
-                -1
-            ],
-            "ContractionPain30minWarm30": [
-                1,
-                0,
-                -1,
-                0
-            ],
-            "ContractionPain5minWarm5": [
-                0,
-                1,
-                0,
-                -1
-            ],
-            "ContractionPain5": [
-                0,
-                1,
-                0,
-                0
-            ],
-            "ContractionPain30": [
-                1,
-                0,
-                0,
-                0
-            ],
             "ContractionPain":[
                 1,
                 1,
@@ -71,14 +41,6 @@
             "ContractionSolo30min5": [
                 1,
                 -1
-            ],
-            "ContractionSolo30": [
-                1,
-                0
-            ],
-            "ContractionSolo5": [
-                0,
-                1
             ]
         },
         "regressor": [
