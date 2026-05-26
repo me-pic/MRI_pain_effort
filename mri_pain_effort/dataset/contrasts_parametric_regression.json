@@ -1,10 +1,10 @@
 {
-    "PE_across_conditions": {
+    "EffortAcrossConditions": {
         "conditions": [
-            "ContractionPain_30",
-            "ContractionPain_5",
-            "ContractionWarm_30",
-            "ContractionWarm_5"
+            "ContractionPain30",
+            "ContractionPain5",
+            "ContractionWarm30",
+            "ContractionWarm5"
         ],
         "param_regressor": "rating_effort",
         "values" : {
@@ -24,38 +24,38 @@
     },
     "PE_by_conditions": {
         "conditions": [
-            "ContractionPain_30",
-            "ContractionPain_5",
-            "ContractionWarm_30",
-            "ContractionWarm_5"
+            "ContractionPain30",
+            "ContractionPain5",
+            "ContractionWarm30",
+            "ContractionWarm5"
         ],
         "param_regressor": "rating_effort",
         "values" : {
-            "rating_effort_PainminWarm": [
+            "EffortContractionPainminWarm": [
                 1,
                 1,
                 -1,
                 -1
             ],
-            "rating_effort_contraction30min5": [
+            "EffortContraction30min5": [
                 1,
                 -1,
                 1,
                 -1
             ],
-            "rating_effort_pain30minwarm30": [
+            "EffortContractionPain30minWarm30": [
                 1,
                 0,
                 -1,
                 0
             ],
-            "rating_effort_pain5minwarm5": [
+            "EffortContractionPain5minWarm5": [
                 0,
                 1,
                 0,
                 -1
             ],
-            "rating_effort_interaction": [
+            "EffortInteraction": [
                 1,
                 -1,
                 -1,

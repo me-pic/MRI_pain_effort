@@ -1,11 +1,11 @@
 {
     "PE_contraction30min5": {
         "conditions": [
-            "contraction30min5"
+            "Contraction30min5"
         ],
         "param_regressor": "rating_effort_normalized",
         "values" : {
-            "rating_effort_normalized": [
+            "NormalizedEffortContraction30min5": [
                 0
             ]
         },
@@ -15,11 +15,11 @@
     },
     "PE_pain30minwarm30": {
         "conditions": [
-            "pain30minwarm30"
+            "ContractionPain30minWarm30"
         ],
         "param_regressor": "rating_effort_normalized",
         "values" : {
-            "rating_effort_normalized": [
+            "NormalizedEffortContractionPain30minWarm30": [
                 0
             ]
         },
@@ -29,11 +29,11 @@
     },
     "PE_pain5minwarm5": {
         "conditions": [
-            "pain5minwarm5"
+            "ContractionPain5minWarm5"
         ],
         "param_regressor": "rating_effort_normalized",
         "values" : {
-            "rating_effort_normalized": [
+            "NormalizedEffortContractionPain5minWarm5": [
                 0
             ]
         },
@@ -43,11 +43,11 @@
     },
     "PE_painminwarm": {
         "conditions": [
-            "painminwarm"
+            "ContractionPainminWarm"
         ],
         "param_regressor": "rating_effort_normalized",
         "values" : {
-            "rating_effort_normalized": [
+            "NormalizedEffortContractionPainminWarm": [
                 0
             ]
         },
@@ -57,11 +57,11 @@
     },
     "PE_interaction": {
         "conditions": [
-            "interaction"
+            "Interaction"
         ],
         "param_regressor": "rating_effort_normalized",
         "values" : {
-            "rating_effort_normalized": [
+            "NormalizedEffortInteraction": [
                 0
             ]
         },

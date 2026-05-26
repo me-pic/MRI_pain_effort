@@ -1,13 +1,13 @@
 {
-    "painminwarm": {
+    "PainminWarm": {
         "conditions": [
-            "Pain_30",
-            "Pain_5",
-            "Warm_30",
-            "Warm_5"
+            "Pain30",
+            "Pain5",
+            "Warm30",
+            "Warm5"
         ],
         "values": {
-            "painminwarm": [
+            "PainminWarm": [
                 1,
                 1,
                 -1,

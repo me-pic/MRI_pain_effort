@@ -1,38 +1,38 @@
 {
-    "contractionxthermal": {
+    "SubjectLevelContrasts": {
         "conditions": [
-            "ContractionPain_30",
-            "ContractionPain_5",
-            "ContractionWarm_30",
-            "ContractionWarm_5"
+            "ContractionPain30",
+            "ContractionPain5",
+            "ContractionWarm30",
+            "ContractionWarm5"
         ],
         "param_regressor": "rating_effort",
         "values": {
-            "painminwarm": [
+            "ContractionPainminWarm": [
                 1,
                 1,
                 -1,
                 -1
             ],
-            "contraction30min5":[
+            "Contraction30min5":[
                 1,
                 -1,
                 1,
                 -1
             ],
-            "pain30minwarm30": [
+            "ContractionPain30minWarm30": [
                 1,
                 0,
                 -1,
                 0
             ],
-            "pain5minwarm5": [
+            "ContractionPain5minWarm5": [
                 0,
                 1,
                 0,
                 -1
             ],
-            "interaction": [
+            "Interaction": [
                 1,
                 -1,
                 -1,
