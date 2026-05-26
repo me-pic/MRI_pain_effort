@@ -15,6 +15,31 @@ from nilearn.glm.first_level import FirstLevelModel
 
 from mri_pain_effort.dataset.first_level_contrasts import make_localizer_contrasts
 
+def get_space(path_mask):
+    space_name = {}
+    mask_file = path_mask.split('/')[-1]
+    mask_entities = mask_file.split('_')
+
+    for entity in mask_entities:
+        if 'tpl' in entity:
+            space_name.update({
+                'space': entity.split('-')[-1]
+            })
+        elif 'atlas' in entity:
+            space_name.update({
+                'atlas': entity.split('-')[-1]
+            })
+        elif 'seg' in entity:
+            space_name.update({
+                'seg': entity.split('-')[-1]
+            })
+        elif 'scale' in entity:
+            space_name.update({
+                'scale': entity.split('-')[-1]
+            })
+
+    return "_".join([f"{k}-{v}" for k, v in space_name.items()])
+
 
 def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_size'], events_desc="events"):
     """
@@ -44,7 +69,9 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
     layout = BIDSLayout(path_data, is_derivative=True, )
     # Get all the subject folders in path_data
     subjects = layout.get_subjects()
-    
+    # Get space name from path_mask
+    space_filename = get_space(path_mask)
+
     # If sub is not None, check if specified subject numbers are valid
     if isinstance(sub, str):
         if sub not in subjects:
@@ -79,12 +106,11 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             print(f"\nRunning GLM on sub-{subject}, run-{run}")
             
             # Load events
+            event = layout.get(subject=subject, extension="tsv", suffix="events", run=run)
             if events_desc == 'events':
-                event = layout.get(subject=subject, extension="tsv", suffix="events", run=run)
+                event = [e for e in event if 'desc' not in e.filename]
             else:
-                event = layout.get(subject=subject, extension="tsv",run=run, invalid_filters='allow')
-                event = [e for e in event if events_desc in e.filename]
-
+                event = [e for e in event if f'desc-{events_desc}' in e.filename]
             if len(event) == 0:
                 warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
                 continue
@@ -128,7 +154,7 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             if save_matrix:
                 print("... Saving design matrix")
                 design_matrix.to_csv(
-                    os.path.join(path_out, f"sub-{subject}_task-pain_run-{run}_desc-designmatrices.tsv"),
+                    os.path.join(path_out, f"sub-{subject}_task-pain_run-{run}_design.tsv"),
                     sep='\t',
                     index=False
                 )
@@ -149,9 +175,10 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
                     try:
                         dictionary_contrasts[contrast_id] = fmri_glm.compute_contrast(contrast_val, output_type=output)
                         # Saving the ouptuts
-                        stats_type=''.join(output.split('_'))
-                        print(f"    Saving: sub-{subject}_task-pain_run-{run}_stat-{stats_type}_desc-{contrast_id}.nii.gz")
-                        nib.save(dictionary_contrasts[contrast_id], os.path.join(path_out, f"sub-{subject}_task-pain_run-{run}_stat-{stats_type}_desc-{contrast_id}.nii.gz"))
+                        stats_type = ''.join(output.split('_'))
+                        contrast_type = ''.join(contrast_id.split('_'))
+                        print(f"    Saving: sub-{subject}_task-pain_run-{run}_{space_filename}_stat-{stats_type}_desc-{contrast_type}.nii.gz")
+                        nib.save(dictionary_contrasts[contrast_id], os.path.join(path_out, f"sub-{subject}_task-pain_run-{run}_{space_filename}_stat-{stats_type}_desc-{contrast_type}.nii.gz"))
                     except:
                         print(f"Could not compute contrast {contrast_id} for sub-{subject}_run-{run}")
                         continue

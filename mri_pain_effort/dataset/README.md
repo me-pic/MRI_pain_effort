@@ -38,13 +38,8 @@ Once those files have been configured based on your own conditions, you can run 
 python mri_pain_effort/analysis/first_level_analysis.py --help
 ```
 
-This will show you the different arguments that need to be specified when calling the script. The positional arguments are the ones that are required, and the optional arguments are optional. The `--subject` argument can be specified if you want to run the first level glm on a specific subject, otherwise the script will run the first level analysis on all subjects found in `path_data`. The `--events` argument can be used if you want to use different files from the `*_events.tsv` files to define the onset and duration of your trials.
+This will show you the different arguments that need to be specified when calling the script. The positional arguments are the ones that are required, and the optional arguments are optional. The `--subject` argument can be specified if you want to run the first level glm on a specific subject, otherwise the script will run the first level analysis on all subjects found in `path_data`. The `--events` argument can be used if you want to use different files from the `sub-<sub_id>_task-pain_run-<run_id>_events.tsv` files to define the onset and duration of your trials.
 
-To run the analysis, you can call the script in your terminal (don't forget to replace the exact argument values by your own paths):
-
-```bash
-python mri_pain_effort/analysis/first_level_analysis.py '/path/to/your/fmriprepoutput/' '/path/to/your/group/level/mask/mymask.nii.gz' '/path/to/save/the/data/'
-```
 
 ## Second level analysis
 
@@ -54,7 +49,7 @@ The second level analysis script can be found under `mri_pain_effort/analysis/se
 python mri_pain_effort/analysis/second_level_analysis.py --help
 ```
 
-Just like the previous scripts, this script takes as arguments `path_data` (directory containing the input of the second level GLM), `path_mask`, and `--path_ouput`. This script also takes the positional argument `contrasts_filename` which is the path to the contrasts file to use to compute the second level GLM, `--path_events` which is the directory containing the `*events.tsv` files (i.e. fmriprep output directory), `--group_level` which, if specified, will compute the second level GLM at the group level (otherwise at the subject level), and `--behavioral_score` which specify the name of the parametric regressor to include (the value should match the name of the columns in the `*events.tsv` files that contain the behavioral scores).
+Just like the previous scripts, this script takes as arguments `path_data` (directory containing the input of the second level GLM), `path_mask`, and `--path_ouput`. This script also takes the positional argument `contrasts_filename` which is the path to the contrasts file to use to compute the second level GLM, `--path_events` which is the directory containing the `*events.tsv` files (i.e. fmriprep output directory), `--group_level` which, if specified, will compute the second level GLM at the group level (otherwise at the subject level), `--tbyt` which, if specified, will use the trial-by-trial maps, and `--transform` which specified which transform, if needed, to apply on the parametric regressors.
 
 The configuration file to run this script should have a format similar to the following, regardless you are running it at the subject-level or at the group-level (using the `--group_level` flag):
 
@@ -95,15 +90,3 @@ The values `"contrast1"`, `"contrast2"` could be change to reflect the name of t
 - For example, the values in `"conditions"` should match the name of the conditions used to save your first level (subject-level analysis) or fixed effect (group-level analysis) maps. 
 - The values in `"values"` should reflect the contrast you want to compute. For example, with the values for `"contrast1`, we would compute the contrast ConditionA > ConditionB. 
 - The values in `"regressor"` will depend if you are running a subject-level analysis or group-level analysis. At the subject level, you could specify "conditions", "runs", and the name of the parametric regressor you want to model (e.g., "rating_effort"). If "conditions" is specified in `"regressor"`, one regressor will be added for each condition specified in `"conditions"`, if "runs" is specified, one regressor will be added to model the functional runs. For a group-level analysis, you could specify "subjects", "conditions" and "runs".
-
-To run the analysis, you can call the script in your terminal (don't forget to replace the exact argument values by your own paths):
-
-```bash
-python mri_pain_effort/analysis/second_level_analysis.py '/path/to/your/second/level/input/' '/path/to/your/group/level/mask/mymask.nii.gz' 'your_second_level_config_file.json' --path_ouput '/path/to/save/the/data/' --path_events '/path/to/your/fmriprepoutput/' --behavioral_score 'rating_effort' 
-```
-
-Example of second level GLM at the group level without considering any parametric regressor:
-
-```bash
-python mri_pain_effort/analysis/second_level_analysis.py '/path/to/your/second/level/input/' '/path/to/your/group/level/mask/mymask.nii.gz' 'your_second_level_config_file_group_level.json' --path_ouput '/path/to/save/the/data/' --group_level
-```
