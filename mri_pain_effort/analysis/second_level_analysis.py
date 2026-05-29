@@ -16,7 +16,7 @@ from nilearn.glm import threshold_stats_img
 from nilearn.glm.second_level import SecondLevelModel
 
 
-def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_events=None, group_level=False, run_renaming=None, transform=None, tbyt=False):
+def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_events=None, group_level=False, run_renaming=None, transform=None, tbyt=False, context="task"):
     """
     Compute Second Level GLM
 
@@ -53,12 +53,12 @@ def run_second_level_glm(path_data, path_mask, path_output, contrasts, path_even
     path_output.mkdir(parents=True, exist_ok=True)
 
     if group_level:
-        group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming, transform, tbyt)
+        group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming, transform, tbyt, context)
     else:
-        subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts)
+        subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, context)
 
 
-def group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming=None, transform=None, tbyt=False):
+def group_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, run_renaming=None, transform=None, tbyt=False, context="task"):
     """
     Compute second level glm at the group level
 
@@ -122,7 +122,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
                 var = var+runs
             
             regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=var)
-            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, run_renaming=run_renaming)
+            tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, context, run_renaming=run_renaming)
 
             filenames = [*filenames, *tmp_data]
             # Concatenate the regressors for `cond` in the design_matrix
@@ -182,7 +182,7 @@ def group_level_glm(layout, layout_events, subjects, path_mask, path_output, con
                 nib.save(corrected_z_map, os.path.join(path_output, f"task-pain_{space_filename}_contrast-{contrast_name}_{model_name}stat-z_desc-fdr{str(threshold).split('.')[1]}_statmap.nii.gz"))
         
 
-def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts):
+def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, contrasts, context):
     """
     Compute second level glm at the subject level
 
@@ -237,7 +237,7 @@ def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, c
                     var = var+[f'run-{r}' for r in runs]
 
                 regressors = pd.DataFrame(0, index=np.arange(len(tmp_conditions)), columns=var)
-                tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond)
+                tmp_data, tmp_design_matrix = _build_design_matrix(tmp_conditions, layout_events, regressors, contrasts[contrast], cond, context)
 
                 filenames = [*filenames, *tmp_data]
                 # Concatenate the regressors for `cond` in the design_matrix
@@ -247,7 +247,7 @@ def subject_level_glm(layout, layout_events, subjects, path_mask, path_output, c
                 if 'param_regressor' in contrasts[contrast].keys():
                     # Contrasts computed at the run level not at the condition level
                     if idx == 0:
-                        _build_behavioral_contrasts(tmp_conditions, layout_events, contrasts[contrast], sub_out_dir)
+                        _build_behavioral_contrasts(tmp_conditions, layout_events, contrasts[contrast], sub_out_dir, context)
             
             # Check the shape of the design matrix
             print(f"Design matrix shape: {design_matrix.shape}")
@@ -307,7 +307,7 @@ def get_space(path_mask):
     return "_".join([f"{k}-{v}" for k, v in space_name.items()])
 
 
-def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_renaming=None):
+def _build_design_matrix(data, layout_events, regressors, contrast, cond, context, run_renaming=None):
     """
     Build design matrix to use for the GLM
 
@@ -365,7 +365,6 @@ def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_re
             else:
                 # Retrieve events file associated to that specific subject/run
                 event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
-                event = [e for e in event if 'desc' not in e.filename]
 
                 # Making sure we have only one event file for a given subject/run
                 if len(event) == 0:
@@ -377,6 +376,8 @@ def _build_design_matrix(data, layout_events, regressors, contrast, cond, run_re
                 print(f"... Loading events file: {event[0].filename}")
                 # Get events
                 df_event = event[0].get_df()
+                df_event = df_event[df_event[context]==1]
+
                 value = df_event[df_event['trial_type'].str.contains(f"{re.split(r'(?=[A-Z])', entities['desc'])[0]}_{cond}", case=False, na=False)][contrast['param_regressor']]
                 if len([r for r in regressors.columns if contrast['param_regressor'] in r]) > 1:
                     regressors.loc[regressors.index[idx], f"{contrast['param_regressor']}_{cond}"] = float(value.iloc[0])
@@ -421,7 +422,7 @@ def _tranform_param_regressor(design_matrix, param_regressor, transform='mean_ce
     return design_matrix
 
 
-def _build_behavioral_contrasts(data, layout_events, contrast, path_output):
+def _build_behavioral_contrasts(data, layout_events, contrast, path_output, context):
     """
     Compute contrast for the behavioral scores
 
@@ -446,7 +447,6 @@ def _build_behavioral_contrasts(data, layout_events, contrast, path_output):
             for run in runs:
                 # Get events file
                 event = layout_events.get(subject=subject, run=run, extension='tsv', suffix='events')
-                event = [e for e in event if 'desc' not in e.filename]
 
                 # Making sure we have only one event file for a given subject/run
                 if len(event) == 0:
@@ -458,6 +458,7 @@ def _build_behavioral_contrasts(data, layout_events, contrast, path_output):
                 print(f"... Loading events file: {event[0].filename}")
                 # Get events
                 event = event[0].get_df()
+                event = event[event[context]==1]
 
                 for idx, cond in enumerate(contrast['conditions']):
                     # Get ratings
@@ -523,6 +524,13 @@ if __name__ == "__main__":
         help="Specify the transformation to apply to the parametric regressor. Possible choices includes `mean_centered` and `normalized`",
         choices=["mean_centered", "normalized"]
     )
+    parser.add_argument(
+        "--context",
+        type=str,
+        default="task",
+        help="Specify the context to use to extract trial info from events files",
+        choices=["task", "onspain"]
+    )
     args = parser.parse_args()
 
     # Get contrasts
@@ -542,4 +550,4 @@ if __name__ == "__main__":
         file.close()
 
     # Run second level analyses
-    run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts, args.path_events, args.group_level, run_renaming, args.transform, args.tbyt)
+    run_second_level_glm(args.path_data, args.path_mask, args.path_output, list_contrasts, args.path_events, args.group_level, run_renaming, args.transform, args.tbyt, args.context)

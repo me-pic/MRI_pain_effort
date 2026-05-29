@@ -41,7 +41,7 @@ def get_space(path_mask):
     return "_".join([f"{k}-{v}" for k, v in space_name.items()])
 
 
-def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_size'], events_desc="events"):
+def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_matrix=False, output_type=['effect_size'], context="task"):
     """
     Compute First Level GLM to get activation maps
 
@@ -107,10 +107,7 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             
             # Load events
             event = layout.get(subject=subject, extension="tsv", suffix="events", run=run)
-            if events_desc == 'events':
-                event = [e for e in event if 'desc' not in e.filename]
-            else:
-                event = [e for e in event if f'desc-{events_desc}' in e.filename]
+
             if len(event) == 0:
                 warnings.warn(f"No events file found for subject sub-{subject}, run run-{run}... Make sure this is not a mistake !")
                 continue
@@ -119,6 +116,7 @@ def run_first_level_glm(path_data, path_mask, path_output, sub, conf_var, save_m
             print(f"... Loading events file: {event[0].filename}")
             # Get events
             event = event[0].get_df()
+            event = event[event[context]==1]
 
             # Load confounds
             conf = layout.get(subject=subject, extension="tsv", suffix="timeseries", run=run)
@@ -208,10 +206,10 @@ if __name__ == "__main__":
         help="To analyze data from a specific participant, this argument can be used to specify the subject id"
     )
     parser.add_argument(
-        "--events",
+        "--context",
         type=str,
-        default="events",
-        help="Descriptor of the events files to use to compute the GLM"
+        default="task",
+        help="Specify the context of the events for computing the GLM"
     )
     args = parser.parse_args()
 
@@ -235,6 +233,6 @@ if __name__ == "__main__":
     Parallel(n_jobs=3)(
         delayed(run_first_level_glm)(
             args.path_data, args.path_mask, args.path_output, sub, 
-            conf_var=conf_var["confounds"], events_desc=args.events
+            conf_var=conf_var["confounds"], context=args.context
         ) for sub in subjects
     )
